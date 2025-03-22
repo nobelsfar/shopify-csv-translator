@@ -12,7 +12,7 @@ import openai
 import time
 import io
 
-# ✅ Må KUN være her og KUN én gang
+# ✅ Denne linje skal stå FØRST
 st.set_page_config(page_title="Shopify CSV Oversætter", layout="wide")
 
 # 🔐 Adgangskodebeskyttelse
@@ -23,7 +23,7 @@ def check_password():
     if not st.session_state["password_correct"]:
         st.title("🔐 Log ind for at bruge appen")
         password = st.text_input("Adgangskode:", type="password")
-        if password == "hemmeligtkodeord":
+        if password == "hemmeligtkodeord":  # ← SKIFT DENNE KODE
             st.session_state["password_correct"] = True
             st.experimental_rerun()
         elif password:
@@ -34,7 +34,7 @@ def check_password():
 
 check_password()
 
-# 🟢 Appen starter her når login er korrekt
+# 🔽 Resten af appen (vises kun efter korrekt login)
 st.title("🌐 Shopify CSV Oversætter")
 st.markdown("Upload en CSV-fil fra Shopify, og oversæt indholdet automatisk baseret på Locale-kolonnen.")
 
