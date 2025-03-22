@@ -12,36 +12,31 @@ import openai
 import time
 import io
 
+# ✅ Må KUN være her og KUN én gang
 st.set_page_config(page_title="Shopify CSV Oversætter", layout="wide")
 
 # 🔐 Adgangskodebeskyttelse
 def check_password():
-    def password_entered():
-        if st.session_state["password"] == "hemmeligtkodeord":  # ← skift kode her
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-        else:
-            st.session_state["password_correct"] = False
-
     if "password_correct" not in st.session_state:
-        st.title("🔐 Log ind for at bruge appen")
-        st.text_input("Adgangskode:", type="password", on_change=password_entered, key="password")
-        st.stop()
-    elif not st.session_state["password_correct"]:
-        st.title("🔐 Log ind for at bruge appen")
-        st.text_input("Adgangskode:", type="password", on_change=password_entered, key="password")
-        st.error("Forkert adgangskode")
-        st.stop()
+        st.session_state["password_correct"] = False
 
-# 🟡 Tjek adgang først!
+    if not st.session_state["password_correct"]:
+        st.title("🔐 Log ind for at bruge appen")
+        password = st.text_input("Adgangskode:", type="password")
+        if password == "hemmeligtkodeord":
+            st.session_state["password_correct"] = True
+            st.experimental_rerun()
+        elif password:
+            st.error("Forkert adgangskode")
+            st.stop()
+        else:
+            st.stop()
+
 check_password()
 
-# 🔽 Resten af din app starter her 👇
-st.set_page_config(page_title="Shopify CSV Oversætter", layout="wide")
-st.title("🌍 Shopify CSV Oversætter")
-# osv...
-
-
+# 🟢 Appen starter her når login er korrekt
+st.title("🌐 Shopify CSV Oversætter")
+st.markdown("Upload en CSV-fil fra Shopify, og oversæt indholdet automatisk baseret på Locale-kolonnen.")
 
 # 🔹 Sprog der understøttes
 supported_languages = {
@@ -49,10 +44,6 @@ supported_languages = {
     "es": "Spansk", "it": "Italiensk", "sv": "Svensk", "no": "Norsk",
     "fi": "Finsk", "pl": "Polsk", "ja": "Japansk"
 }
-
-st.set_page_config(page_title="Shopify CSV Oversætter", layout="wide")
-st.title("🌐 Shopify CSV Oversætter")
-st.markdown("Upload en CSV-fil fra Shopify, og oversæt indholdet automatisk baseret på Locale-kolonnen.")
 
 # 📂 Upload CSV
 uploaded_file = st.file_uploader("Upload din Shopify CSV-fil", type=["csv"])
