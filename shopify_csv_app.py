@@ -12,6 +12,35 @@ import openai
 import time
 import io
 
+# 🔐 Adgangskodebeskyttelse
+def check_password():
+    def password_entered():
+        if st.session_state["password"] == "hemmeligtkodeord":  # ← skift kode her
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.title("🔐 Log ind for at bruge appen")
+        st.text_input("Adgangskode:", type="password", on_change=password_entered, key="password")
+        st.stop()
+    elif not st.session_state["password_correct"]:
+        st.title("🔐 Log ind for at bruge appen")
+        st.text_input("Adgangskode:", type="password", on_change=password_entered, key="password")
+        st.error("Forkert adgangskode")
+        st.stop()
+
+# 🟡 Tjek adgang først!
+check_password()
+
+# 🔽 Resten af din app starter her 👇
+st.set_page_config(page_title="Shopify CSV Oversætter", layout="wide")
+st.title("🌍 Shopify CSV Oversætter")
+# osv...
+
+
+
 # 🔹 Sprog der understøttes
 supported_languages = {
     "en": "Engelsk", "de": "Tysk", "fr": "Fransk", "nl": "Hollandsk",
