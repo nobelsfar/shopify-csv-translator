@@ -23,14 +23,19 @@ def check_password():
     if not st.session_state["password_correct"]:
         st.title("🔐 Log ind for at bruge appen")
         password = st.text_input("Adgangskode:", type="password")
-        if password == "hemmeligtkodeord":  # ← SKIFT DENNE KODE
-            st.session_state["password_correct"] = True
-            st.experimental_rerun()
-        elif password:
-            st.error("Forkert adgangskode")
-            st.stop()
+        login_button = st.button("Log ind")
+
+        if login_button:
+            if password == "hemmeligtkodeord":  # ← skift til din ønskede kode
+                st.session_state["password_correct"] = True
+                st.success("✅ Logget ind!")
+            else:
+                st.error("Forkert adgangskode")
+                st.stop()
+
         else:
             st.stop()
+
 
 check_password()
 
