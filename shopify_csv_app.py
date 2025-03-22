@@ -12,6 +12,8 @@ import openai
 import time
 import io
 
+st.set_page_config(page_title="Shopify CSV Oversætter", layout="wide")
+
 # 🔐 Adgangskodebeskyttelse
 def check_password():
     def password_entered():
