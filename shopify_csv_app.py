@@ -91,13 +91,26 @@ if uploaded_file and api_key:
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("**Original (dansk):**")
-        st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{df.at[selected_row, 'Default content']}</div>", unsafe_allow_html=True)
+        default_html_key = f"default_html_{selected_row}"
+        default_content = df.at[selected_row, 'Default content']
+        if default_html_key not in st.session_state:
+            st.session_state[default_html_key] = default_content
+
+        if st.checkbox("Vis HTML (dansk)", key=f"show_html_da_{selected_row}"):
+            default_content = st.text_area("HTML (dansk)", value=default_content, height=200, key=f"html_da_{selected_row}")
+
+        st.session_state[default_html_key] = st.text_area("", value=default_content, height=300, key=f"preview_da_{selected_row}")
     with col2:
         st.markdown("**Oversættelse:**")
-        text_key_preview = f"preview_{selected_row}"
-        if text_key_preview not in st.session_state:
-            st.session_state[text_key_preview] = df.at[selected_row, "Translated content"] if pd.notna(df.at[selected_row, "Translated content"]) else ""
-        edited_text_preview = st.text_area("", value=st.session_state[text_key_preview], height=300, key=text_key_preview)
+        translated_html_key = f"translated_html_{selected_row}"
+        translated_content = df.at[selected_row, 'Translated content'] if pd.notna(df.at[selected_row, 'Translated content']) else ""
+        if translated_html_key not in st.session_state:
+            st.session_state[translated_html_key] = translated_content
+
+        if st.checkbox("Vis HTML (oversat)", key=f"show_html_trans_{selected_row}"):
+            translated_content = st.text_area("HTML (oversat)", value=translated_content, height=200, key=f"html_trans_{selected_row}")
+
+        st.session_state[translated_html_key] = st.text_area("", value=translated_content, height=300, key=f"preview_trans_{selected_row}")
 
     st.markdown("**✏️ Redigér HTML-indholdet:**")
     text_key = f"text_{selected_row}"
@@ -110,7 +123,7 @@ if uploaded_file and api_key:
     #"Ret oversættelsen her:", height=300, key=edit_key)
 
     if st.button("💾 Gem ændringer"):
-        edited_text = st.session_state[text_key_preview]
+        edited_text = st.session_state[translated_html_key]
         original = "" if pd.isna(df.at[selected_row, "Translated content"]) else str(df.at[selected_row, "Translated content"])
         if edited_text.strip() == "":
             st.warning("Oversættelsen må ikke være tom – ændring blev ikke gemt.")
