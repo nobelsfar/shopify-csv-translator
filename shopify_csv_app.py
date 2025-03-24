@@ -102,7 +102,7 @@ if uploaded_file and api_key:
         st.markdown("**Oversættelse:**")
         translated_content = df.at[selected_row, 'Translated content'] if pd.notna(df.at[selected_row, 'Translated content']) else ""
 
-        if st.checkbox("Vis HTML (oversat)", key=f"show_html_trans_{selected_row}"):
+        if st.checkbox("Vis HTML (oversat)", key=f"show_html_translated_{selected_row}"):
             translated_content = st.text_area("HTML (oversat)", value=translated_content, height=200, key=f"html_trans_{selected_row}")
 
         st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{translated_content}</div>", unsafe_allow_html=True)
