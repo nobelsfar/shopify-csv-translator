@@ -77,7 +77,7 @@ if uploaded_file and api_key:
                         response = client.chat.completions.create(
                             model="gpt-4-turbo",
                             messages=[
-                                {"role": "system", "content": f"Du er en professionel oversætter. Oversæt nøjagtigt fra dansk til {supported_languages[locale]} uden at ændre HTML-struktur."},
+                                {"role": "system", "content": f"Du er en professionel oversætter. Oversæt nøjagtigt og ordret fra dansk til {supported_languages[locale]}. Bevar alle HTML-tags og strukturen præcis som den er. Du må ikke forklare noget. Returnér KUN den oversatte tekst – uden overskrifter, bemærkninger eller forklaringer."},
                                 {"role": "user", "content": f"Oversæt følgende tekst fra dansk til {supported_languages[locale]}: {row['Default content']}"}
                             ]
                         )
