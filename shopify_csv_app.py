@@ -69,6 +69,7 @@ if uploaded_file and api_key:
                         )
                         translated_text = response.choices[0].message.content.strip()
                         df.at[index, "Translated content"] = translated_text
+                        st.session_state[f"backup_translated_{index}"] = translated_text
                     except Exception as e:
                         df.at[index, "Translated content"] = f"FEJL: {e}"
             count += 1
