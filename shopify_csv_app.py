@@ -103,24 +103,18 @@ if uploaded_file and api_key:
         translated_content = df.at[selected_row, 'Translated content'] if pd.notna(df.at[selected_row, 'Translated content']) else ""
 
         if st.checkbox("Vis HTML (oversat)", key=f"show_html_trans_{selected_row}"):
-            edited_translated = st.text_area("HTML (oversat)", value=translated_content, height=200, key=f"html_trans_{selected_row}")
-            translated_content = edited_translated
+            translated_content = st.text_area("HTML (oversat)", value=translated_content, height=200, key=f"html_trans_{selected_row}")
 
-        edited_translated_content = st.text_area("", value=translated_content, height=300, key=f"preview_trans_{selected_row}")
+        translated_content = st.text_area("", value=translated_content, height=300, key=f"preview_trans_{selected_row}")
         translated_content = edited_translated_content
 
-    st.markdown("**✏️ Redigér HTML-indholdet:**")
-    text_key = f"text_{selected_row}"
-    if text_key not in st.session_state:
-        raw_val = df.at[selected_row, "Translated content"]
-        st.session_state[text_key] = "" if pd.isna(raw_val) else str(raw_val)
-
+    
     #edited_text feltet er fjernet da redigering nu sker direkte i preview-feltet
 
     #"Ret oversættelsen her:", height=300, key=edit_key)
 
     if st.button("💾 Gem ændringer"):
-        edited_text = st.session_state[translated_html_key]
+        edited_text = translated_content
         original = "" if pd.isna(df.at[selected_row, "Translated content"]) else str(df.at[selected_row, "Translated content"])
         if edited_text.strip() == "":
             st.warning("Oversættelsen må ikke være tom – ændring blev ikke gemt.")
