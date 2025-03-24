@@ -102,7 +102,7 @@ if uploaded_file and api_key:
         raw_val = df.at[selected_row, "Translated content"]
         st.session_state[text_key] = "" if pd.isna(raw_val) else str(raw_val)
 
-    edited_text = st.text_area("Ret oversættelsen her:", height=300, key=text_key) else str(raw_val), height=300)
+    edited_text = st.text_area("Ret oversættelsen her:", height=300, key=text_key)
 
     #"Ret oversættelsen her:", height=300, key=edit_key)
 
