@@ -81,11 +81,12 @@ if uploaded_file and api_key:
     st.markdown("---")
     st.subheader("📝 Rediger og forhåndsvis oversættelser")
 
-    def label_row(i):
+def label_row(i):
     type_field = df.at[i, 'Type']
     field_name = df.at[i, 'Field']
     locale = df.at[i, 'Locale']
     return f"{type_field} → {field_name} ({locale})"
+
 
     selected_row = st.selectbox("Vælg række til redigering og preview", options=df.sort_values(by='Field').index, format_func=label_row)
 
