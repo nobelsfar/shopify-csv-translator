@@ -97,7 +97,11 @@ if uploaded_file and api_key:
         st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{df.at[selected_row, 'Translated content']}</div>", unsafe_allow_html=True)
 
     st.markdown("**✏️ Redigér HTML-indholdet:**")
-    edited_text = st.text_area("Ret oversættelsen her:", value=df.at[selected_row, "Translated content"], height=300, key=f"edit_{selected_row}")
+    default_text = df.at[selected_row, "Translated content"]
+    if pd.isna(default_text):
+        default_text = ""
+
+    edited_text = st.text_area("Ret oversættelsen her:", value=default_text, height=300, key=f"edit_{selected_row}")
 
     if st.button("💾 Gem ændringer"):
         if edited_text and isinstance(edited_text, str):
