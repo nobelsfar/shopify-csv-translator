@@ -106,6 +106,7 @@ if uploaded_file and api_key:
         else:
             st.warning("Ingen ændringer blev gemt – feltet var tomt eller ugyldigt.")
 
+    # Download altid den opdaterede dataframe
     csv = df.to_csv(index=False, encoding="utf-8-sig")
     st.download_button(
         label="📂 Download oversat CSV",
