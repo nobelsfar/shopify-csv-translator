@@ -108,7 +108,9 @@ if uploaded_file and api_key:
 
     if st.button("💾 Gem ændringer"):
         original = "" if pd.isna(df.at[selected_row, "Translated content"]) else str(df.at[selected_row, "Translated content"])
-        if edited_text != original:
+        if edited_text.strip() == "":
+            st.warning("Oversættelsen må ikke være tom – ændring blev ikke gemt.")
+        elif edited_text != original:
             df.at[selected_row, "Translated content"] = edited_text
             st.success("Ændring gemt!")
         else:
