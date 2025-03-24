@@ -101,6 +101,10 @@ if uploaded_file and api_key:
     with col2:
         st.markdown("**Oversættelse:**")
         translated_content = df.at[selected_row, 'Translated content'] if pd.notna(df.at[selected_row, 'Translated content']) else ""
+        translated_editor_active = st.checkbox("Vis HTML (oversat)", key=f"show_html_translated_{selected_row}")
+
+        if translated_editor_active:
+            translated_content = st.text_area("HTML (oversat)", value=translated_content, height=200, key=f"html_trans_{selected_row}")
 
         if st.checkbox("Vis HTML (oversat)", key=f"show_html_translated_{selected_row}"):
             translated_content = st.text_area("HTML (oversat)", value=translated_content, height=200, key=f"html_trans_{selected_row}")
@@ -112,7 +116,10 @@ if uploaded_file and api_key:
     #"Ret oversættelsen her:", height=300, key=edit_key)
 
     if st.button("💾 Gem ændringer"):
-        edited_text = translated_content
+        if translated_editor_active:
+            edited_text = translated_content
+        else:
+            edited_text = df.at[selected_row, 'Translated content']
         original = "" if pd.isna(df.at[selected_row, "Translated content"]) else str(df.at[selected_row, "Translated content"])
         if edited_text.strip() == "":
             st.warning("Oversættelsen må ikke være tom – ændring blev ikke gemt.")
