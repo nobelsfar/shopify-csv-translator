@@ -97,15 +97,16 @@ if uploaded_file and api_key:
         st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{df.at[selected_row, 'Translated content']}</div>", unsafe_allow_html=True)
 
     st.markdown("**✏️ Redigér HTML-indholdet:**")
-    default_text = df.at[selected_row, "Translated content"]
-    if pd.isna(default_text):
-        default_text = ""
+    edit_key = f"edit_{selected_row}"
+    if edit_key not in st.session_state:
+        st.session_state[edit_key] = df.at[selected_row, "Translated content"] or ""
 
-    edited_text = st.text_area("Ret oversættelsen her:", value=default_text, height=300, key=f"edit_{selected_row}")
+    edited_text = st.text_area("Ret oversættelsen her:", value=st.session_state[edit_key], height=300, key=edit_key)
 
     if st.button("💾 Gem ændringer"):
         if edited_text and isinstance(edited_text, str):
             df.at[selected_row, "Translated content"] = edited_text
+            st.session_state[edit_key] = edited_text
             st.success("Ændring gemt!")
         else:
             st.warning("Ingen ændringer blev gemt – feltet var tomt eller ugyldigt.")
@@ -119,4 +120,4 @@ if uploaded_file and api_key:
         mime="text/csv"
     )
 else:
-    st.info("Upload en CSV og indsæt din API-nøgle for at komme i gang.")
+    st.info("Upload en CSV og indsæt din OpenAI API-nøgle for at komme i gang.")
