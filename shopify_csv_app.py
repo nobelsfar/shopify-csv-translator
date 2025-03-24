@@ -106,9 +106,6 @@ if uploaded_file and api_key:
         if translated_editor_active:
             translated_content = st.text_area("HTML (oversat)", value=translated_content, height=200, key=f"html_trans_{selected_row}")
 
-        if st.checkbox("Vis HTML (oversat)", key=f"show_html_translated_{selected_row}"):
-            translated_content = st.text_area("HTML (oversat)", value=translated_content, height=200, key=f"html_trans_{selected_row}")
-
         st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{translated_content}</div>", unsafe_allow_html=True)
     
     #edited_text feltet er fjernet da redigering nu sker direkte i preview-feltet
