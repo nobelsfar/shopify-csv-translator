@@ -101,10 +101,17 @@ if uploaded_file and api_key:
     with col2:
         st.markdown("**Oversættelse:**")
         translated_content = df.at[selected_row, 'Translated content'] if pd.notna(df.at[selected_row, 'Translated content']) else ""
+
+        backup_key = f"backup_translated_{selected_row}"
+        if backup_key not in st.session_state:
+            st.session_state[backup_key] = translated_content
+        else:
+            translated_content = st.session_state[backup_key]
         translated_editor_active = st.checkbox("Vis HTML (oversat)", key=f"show_html_translated_{selected_row}")
 
         if translated_editor_active:
             translated_content = st.text_area("HTML (oversat)", value=translated_content, height=200, key=f"html_trans_{selected_row}")
+            st.session_state[backup_key] = translated_content
 
         st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{translated_content}</div>", unsafe_allow_html=True)
     
