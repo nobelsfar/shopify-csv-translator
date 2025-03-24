@@ -82,9 +82,10 @@ if uploaded_file and api_key:
     st.subheader("📝 Rediger og forhåndsvis oversættelser")
 
     def label_row(i):
-        default = df.at[i, "Default content"]
-        short = default[:60].replace("\n", " ").strip() + ("..." if len(default) > 60 else "")
-        return f"{i}: {df.at[i, 'Type']} – {df.at[i, 'Field']} ({df.at[i, 'Locale']}) → {short}"
+    type_field = df.at[i, 'Type']
+    field_name = df.at[i, 'Field']
+    locale = df.at[i, 'Locale']
+    return f"{type_field} → {field_name} ({locale})"
 
     selected_row = st.selectbox("Vælg række til redigering og preview", options=df.sort_values(by='Field').index, format_func=label_row)
 
