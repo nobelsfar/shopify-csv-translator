@@ -106,8 +106,6 @@ if uploaded_file and api_key:
             translated_content = st.text_area("HTML (oversat)", value=translated_content, height=200, key=f"html_trans_{selected_row}")
 
         translated_content = st.text_area("", value=translated_content, height=300, key=f"preview_trans_{selected_row}")
-        translated_content = edited_translated_content
-
     
     #edited_text feltet er fjernet da redigering nu sker direkte i preview-feltet
 
