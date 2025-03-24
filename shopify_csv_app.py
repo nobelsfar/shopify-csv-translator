@@ -43,6 +43,7 @@ api_key = st.text_input("Indsæt din OpenAI API-nøgle", type="password")
 
 if uploaded_file and api_key:
     df = pd.read_csv(uploaded_file)
+    df.columns = df.columns.str.strip()
     st.success("CSV-fil indlæst!")
 
     available_locales = df["Locale"].dropna().unique().tolist()
@@ -79,7 +80,6 @@ if uploaded_file and api_key:
     st.markdown("---")
     st.subheader("📝 Rediger og forhåndsvis oversættelser")
 
-    # Bedre navigation med tabel-lignende dropdown visning
     def label_row(i):
         default = df.at[i, "Default content"]
         short = default[:60].replace("\n", " ").strip() + ("..." if len(default) > 60 else "")
@@ -87,7 +87,6 @@ if uploaded_file and api_key:
 
     selected_row = st.selectbox("Vælg række til redigering og preview", options=df.index, format_func=label_row)
 
-    # Side-by-side preview af original og oversat
     st.markdown("**🔍 Forhåndsvisning af indhold:**")
     col1, col2 = st.columns(2)
     with col1:
@@ -97,10 +96,15 @@ if uploaded_file and api_key:
         st.markdown("**Oversættelse:**")
         st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{df.at[selected_row, 'Translated content']}</div>", unsafe_allow_html=True)
 
-    # Redigerbar HTML under preview
     st.markdown("**✏️ Redigér HTML-indholdet:**")
-    edited_text = st.text_area("Ret oversættelsen her:", value=df.at[selected_row, "Translated content"], height=300)
-    df.at[selected_row, "Translated content"] = edited_text
+    edited_text = st.text_area("Ret oversættelsen her:", value=df.at[selected_row, "Translated content"], height=300, key=f"edit_{selected_row}")
+
+    if st.button("💾 Gem ændringer"):
+        if edited_text and isinstance(edited_text, str):
+            df.at[selected_row, "Translated content"] = edited_text
+            st.success("Ændring gemt!")
+        else:
+            st.warning("Ingen ændringer blev gemt – feltet var tomt eller ugyldigt.")
 
     csv = df.to_csv(index=False, encoding="utf-8-sig")
     st.download_button(
