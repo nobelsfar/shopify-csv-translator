@@ -101,7 +101,7 @@ if uploaded_file and api_key:
     if edit_key not in st.session_state:
         st.session_state[edit_key] = df.at[selected_row, "Translated content"] or ""
 
-    edited_text = st.text_area("Ret oversættelsen her:", value=st.session_state[edit_key], height=300, key=edit_key)
+    edited_text = st.text_area("Ret oversættelsen her:", height=300, key=edit_key)
 
     if st.button("💾 Gem ændringer"):
         if edited_text and isinstance(edited_text, str):
