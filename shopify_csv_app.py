@@ -1,21 +1,12 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Mar 22 15:58:05 2025
-
-@author: babelon
-"""
-
 import streamlit as st
 import pandas as pd
 import openai
 import time
 import io
 
-# ✅ Denne linje skal stå FØRST
 st.set_page_config(page_title="Shopify CSV Oversætter", layout="wide")
 
-# 🔐 Adgangskodebeskyttelse
+# Adgangskodebeskyttelse
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
@@ -26,7 +17,7 @@ def check_password():
         login_button = st.button("Log ind")
 
         if login_button:
-            if password == "hemmeligtkodeord":  # ← skift til din ønskede kode
+            if password == "hemmeligtkodeord":
                 st.session_state["password_correct"] = True
                 st.success("✅ Logget ind!")
             else:
@@ -36,30 +27,24 @@ def check_password():
         else:
             st.stop()
 
-
 check_password()
 
-# 🔽 Resten af appen (vises kun efter korrekt login)
 st.title("🌐 Shopify CSV Oversætter")
 st.markdown("Upload en CSV-fil fra Shopify, og oversæt indholdet automatisk baseret på Locale-kolonnen.")
 
-# 🔹 Sprog der understøttes
 supported_languages = {
     "en": "Engelsk", "de": "Tysk", "fr": "Fransk", "nl": "Hollandsk",
     "es": "Spansk", "it": "Italiensk", "sv": "Svensk", "no": "Norsk",
     "fi": "Finsk", "pl": "Polsk", "ja": "Japansk"
 }
 
-# 📂 Upload CSV
 uploaded_file = st.file_uploader("Upload din Shopify CSV-fil", type=["csv"])
 api_key = st.text_input("Indsæt din OpenAI API-nøgle", type="password")
 
-# 🌍 Start, hvis alt er klar
 if uploaded_file and api_key:
     df = pd.read_csv(uploaded_file)
     st.success("CSV-fil indlæst!")
 
-    # Vælg hvilke sprog der skal oversættes
     available_locales = df["Locale"].dropna().unique().tolist()
     selected_locales = st.multiselect("Vælg hvilke Locale-sprog du vil oversætte", options=available_locales, default=available_locales)
 
@@ -77,8 +62,8 @@ if uploaded_file and api_key:
                         response = client.chat.completions.create(
                             model="gpt-4-turbo",
                             messages=[
-                                {"role": "system", "content": f"Du er en professionel oversætter. Oversæt nøjagtigt og ordret fra dansk til {supported_languages[locale]}. Bevar alle HTML-tags og strukturen præcis som den er. Du må ikke forklare noget. Returnér KUN den oversatte tekst – uden overskrifter, bemærkninger eller forklaringer."},
-                                {"role": "user", "content": f"Oversæt følgende tekst fra dansk til {supported_languages[locale]}: {row['Default content']}"}
+                                {"role": "system", "content": f"Du er en professionel oversætter. Oversæt nøjagtigt og ordret fra dansk til {supported_languages[locale]}. Bevar alle HTML-tags og strukturen præcis som den er. Du må ikke forklare noget. Returnér KUN den oversatte tekst."},
+                                {"role": "user", "content": f"{row['Default content']}"}
                             ]
                         )
                         translated_text = response.choices[0].message.content.strip()
@@ -91,17 +76,31 @@ if uploaded_file and api_key:
 
         st.success("Oversættelse færdig!")
 
-        # 🔍 Vis de første par rækker
-        st.dataframe(df.head(10))
+    st.markdown("---")
+    st.subheader("📝 Rediger og forhåndsvis oversættelser")
 
-        # 🔧 Tillad download
-        csv = df.to_csv(index=False, encoding="utf-8-sig")
-        st.download_button(
-            label="📂 Download oversat CSV",
-            data=csv,
-            file_name="shopify_translated.csv",
-            mime="text/csv"
-        )
+    selected_row = st.selectbox("Vælg række til redigering og preview", options=df.index, format_func=lambda i: f"{i}: {df.at[i, 'Field']} ({df.at[i, 'Locale']})")
 
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("**Original (dansk):**")
+        st.markdown(df.at[selected_row, "Default content"], unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("**Oversættelse (redigerbar):**")
+        edited_text = st.text_area("Redigér HTML-indholdet her:", value=df.at[selected_row, "Translated content"], height=300)
+        df.at[selected_row, "Translated content"] = edited_text
+
+    st.markdown("**🔍 Forhåndsvisning af den redigerede oversættelse:**")
+    st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{edited_text}</div>", unsafe_allow_html=True)
+
+    csv = df.to_csv(index=False, encoding="utf-8-sig")
+    st.download_button(
+        label="📂 Download oversat CSV",
+        data=csv,
+        file_name="shopify_translated.csv",
+        mime="text/csv"
+    )
 else:
     st.info("Upload en CSV og indsæt din API-nøgle for at komme i gang.")
