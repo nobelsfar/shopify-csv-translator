@@ -97,8 +97,12 @@ if uploaded_file and api_key:
         st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{df.at[selected_row, 'Translated content']}</div>", unsafe_allow_html=True)
 
     st.markdown("**✏️ Redigér HTML-indholdet:**")
-    raw_val = df.at[selected_row, "Translated content"]
-    edited_text = st.text_area("Ret oversættelsen her:", value="" if pd.isna(raw_val) else str(raw_val), height=300)
+    text_key = f"text_{selected_row}"
+    if text_key not in st.session_state:
+        raw_val = df.at[selected_row, "Translated content"]
+        st.session_state[text_key] = "" if pd.isna(raw_val) else str(raw_val)
+
+    edited_text = st.text_area("Ret oversættelsen her:", height=300, key=text_key) else str(raw_val), height=300)
 
     #"Ret oversættelsen her:", height=300, key=edit_key)
 
