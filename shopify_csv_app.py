@@ -87,19 +87,20 @@ if uploaded_file and api_key:
 
     selected_row = st.selectbox("Vælg række til redigering og preview", options=df.index, format_func=label_row)
 
+    # Side-by-side preview af original og oversat
+    st.markdown("**🔍 Forhåndsvisning af indhold:**")
     col1, col2 = st.columns(2)
-
     with col1:
         st.markdown("**Original (dansk):**")
-        st.markdown(df.at[selected_row, "Default content"], unsafe_allow_html=True)
-
+        st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{df.at[selected_row, 'Default content']}</div>", unsafe_allow_html=True)
     with col2:
-        st.markdown("**Oversættelse (redigerbar):**")
-        edited_text = st.text_area("Redigér HTML-indholdet her:", value=df.at[selected_row, "Translated content"], height=300)
-        df.at[selected_row, "Translated content"] = edited_text
+        st.markdown("**Oversættelse:**")
+        st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{df.at[selected_row, 'Translated content']}</div>", unsafe_allow_html=True)
 
-    st.markdown("**🔍 Forhåndsvisning af den redigerede oversættelse:**")
-    st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{edited_text}</div>", unsafe_allow_html=True)
+    # Redigerbar HTML under preview
+    st.markdown("**✏️ Redigér HTML-indholdet:**")
+    edited_text = st.text_area("Ret oversættelsen her:", value=df.at[selected_row, "Translated content"], height=300)
+    df.at[selected_row, "Translated content"] = edited_text
 
     csv = df.to_csv(index=False, encoding="utf-8-sig")
     st.download_button(
