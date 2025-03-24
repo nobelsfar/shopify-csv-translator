@@ -79,7 +79,13 @@ if uploaded_file and api_key:
     st.markdown("---")
     st.subheader("📝 Rediger og forhåndsvis oversættelser")
 
-    selected_row = st.selectbox("Vælg række til redigering og preview", options=df.index, format_func=lambda i: f"{i}: {df.at[i, 'Field']} ({df.at[i, 'Locale']})")
+    # Bedre navigation med tabel-lignende dropdown visning
+    def label_row(i):
+        default = df.at[i, "Default content"]
+        short = default[:60].replace("\n", " ").strip() + ("..." if len(default) > 60 else "")
+        return f"{i}: {df.at[i, 'Type']} – {df.at[i, 'Field']} ({df.at[i, 'Locale']}) → {short}"
+
+    selected_row = st.selectbox("Vælg række til redigering og preview", options=df.index, format_func=label_row)
 
     col1, col2 = st.columns(2)
 
