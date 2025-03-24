@@ -134,6 +134,12 @@ if uploaded_file and api_key:
         else:
             st.info("Ingen ændringer at gemme.")
 
+    # Opdater DataFrame med oversættelser fra session_state før download
+    for idx in df.index:
+        backup_key = f"backup_translated_{idx}"
+        if backup_key in st.session_state:
+            df.at[idx, "Translated content"] = st.session_state[backup_key]
+
     csv = df.to_csv(index=False, encoding="utf-8-sig")
     st.download_button(
         label="📂 Download oversat CSV",
