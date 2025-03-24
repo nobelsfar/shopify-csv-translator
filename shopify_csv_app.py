@@ -94,7 +94,10 @@ if uploaded_file and api_key:
         st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{df.at[selected_row, 'Default content']}</div>", unsafe_allow_html=True)
     with col2:
         st.markdown("**Oversættelse:**")
-        st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{df.at[selected_row, 'Translated content']}</div>", unsafe_allow_html=True)
+        text_key_preview = f"preview_{selected_row}"
+        if text_key_preview not in st.session_state:
+            st.session_state[text_key_preview] = df.at[selected_row, "Translated content"] if pd.notna(df.at[selected_row, "Translated content"]) else ""
+        edited_text_preview = st.text_area("", value=st.session_state[text_key_preview], height=300, key=text_key_preview)
 
     st.markdown("**✏️ Redigér HTML-indholdet:**")
     text_key = f"text_{selected_row}"
@@ -102,11 +105,12 @@ if uploaded_file and api_key:
         raw_val = df.at[selected_row, "Translated content"]
         st.session_state[text_key] = "" if pd.isna(raw_val) else str(raw_val)
 
-    edited_text = st.text_area("Ret oversættelsen her:", height=300, key=text_key)
+    #edited_text feltet er fjernet da redigering nu sker direkte i preview-feltet
 
     #"Ret oversættelsen her:", height=300, key=edit_key)
 
     if st.button("💾 Gem ændringer"):
+        edited_text = st.session_state[text_key_preview]
         original = "" if pd.isna(df.at[selected_row, "Translated content"]) else str(df.at[selected_row, "Translated content"])
         if edited_text.strip() == "":
             st.warning("Oversættelsen må ikke være tom – ændring blev ikke gemt.")
