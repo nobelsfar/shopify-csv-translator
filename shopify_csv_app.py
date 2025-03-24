@@ -99,7 +99,8 @@ if uploaded_file and api_key:
     st.markdown("**✏️ Redigér HTML-indholdet:**")
     edit_key = f"edit_{selected_row}"
     if edit_key not in st.session_state:
-        st.session_state[edit_key] = df.at[selected_row, "Translated content"] or ""
+        raw_val = df.at[selected_row, "Translated content"]
+        st.session_state[edit_key] = "" if pd.isna(raw_val) else str(raw_val)
 
     edited_text = st.text_area("Ret oversættelsen her:", height=300, key=edit_key)
 
@@ -111,7 +112,6 @@ if uploaded_file and api_key:
         else:
             st.warning("Ingen ændringer blev gemt – feltet var tomt eller ugyldigt.")
 
-    # Download altid den opdaterede dataframe
     csv = df.to_csv(index=False, encoding="utf-8-sig")
     st.download_button(
         label="📂 Download oversat CSV",
