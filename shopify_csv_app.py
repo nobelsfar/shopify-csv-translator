@@ -105,7 +105,7 @@ if uploaded_file and api_key:
     if st.button("💾 Gem ændringer"):
         if edited_text and isinstance(edited_text, str):
             df.at[selected_row, "Translated content"] = edited_text
-                        st.success("Ændring gemt!")
+            st.success("Ændring gemt!")
         else:
             st.warning("Ingen ændringer blev gemt – feltet var tomt eller ugyldigt.")
 
