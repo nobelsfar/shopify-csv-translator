@@ -10,7 +10,7 @@ import json
 import requests
 from bs4 import BeautifulSoup
 
-# Vælg den korrekte sti til state-filen. På Streamlit Cloud bruges /mnt/data, ellers gemmes der lokalt.
+# Vælg den korrekte sti til state-filen. På Streamlit Cloud bruges /mnt/data, ellers gemmes lokalt.
 if os.path.exists("/mnt/data") and os.access("/mnt/data", os.W_OK):
     STATE_FILE = "/mnt/data/state.json"
 else:
@@ -76,7 +76,7 @@ def fetch_product_links(url):
         for a_tag in soup.find_all("a", href=True):
             href = a_tag["href"]
             if href.startswith("/products/"):
-                full = "https://noyer.dk" + href  # tilføj domænet
+                full = "https://noyer.dk" + href
                 links.append(full)
     except Exception as e:
         st.error(f"Fejl ved hentning af produktlinks: {e}")
@@ -104,7 +104,7 @@ def fetch_product_description(url):
 def create_product_json_from_bigtext(big_text, count):
     """
     Sender big_text til GPT og beder om et JSON-array 'produkter'
-    med nøjagtig `count` objekter (ét for hver side).
+    med nøjagtigt `count` objekter (ét for hver side).
     """
     prompt = (
         f"Her følger tekst fra {count} produktsider (Noyer). "
@@ -271,28 +271,28 @@ if st.session_state["page"] == "profil":
                 links = fetch_product_links(url_collection.strip())
                 st.write(f"Antal fundne produktlinks: {len(links)}")
                 if len(links) == 0:
-                    st.warning("Fandt ingen /products/-links. Mangler JavaScript? Forkert URL? Fel CSS?")
+                    st.warning("Fandt ingen /products/-links. Mangler JavaScript? Forkert URL? CSS-problem?")
                 else:
-                    st.write("Fundne links:", links[:10], "...")
+                    st.write("Fundne links (viser kun top 10):", links[:10], "...")
                     big_text = ""
                     with st.spinner("2) Henter beskrivelser fra hver produktside..."):
                         idx_num = 0
                         for lnk in links:
-                            desc = fetch_product_description(lnk)
                             idx_num += 1
-                            # UDskriv top 200 tegn pr. side i appen, for at se om alt er tomt
+                            desc = fetch_product_description(lnk)
                             st.markdown(f"**Produkt {idx_num}:** {lnk}")
-                            st.text_area(f"Ekstrakt:", desc[:200], height=80)
+                            # Unikt label => "Ekstrakt {idx_num}"
+                            st.text_area(f"Ekstrakt {idx_num}:", desc[:200], height=80)
                             big_text += f"\n\n=== PRODUCT PAGE {idx_num}: {lnk} ===\n{desc}"
 
-                    with st.spinner("3) Sender samlet tekst til GPT for at få nøjagtig {len(links)} JSON-objekter..."):
+                    with st.spinner(f"3) Sender samlet tekst til GPT for at få nøjagtig {len(links)} JSON-objekter..."):
                         try:
                             products_data = create_product_json_from_bigtext(big_text, len(links))
                             product_str = json.dumps(products_data, ensure_ascii=False, indent=2)
                             st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = product_str
                             current_data["produkt_info"] = product_str
                             save_state()
-                            st.success(f"Gemte produktlisten i 'produkt_info' - forventet {len(links)} items!")
+                            st.success(f"Gemte produktlisten i 'produkt_info' – forventet {len(links)} items!")
                             st.text_area("Produkter (JSON fra AI)", product_str, height=250)
                         except Exception as e:
                             st.error(f"Fejl ved generering af produktliste: {e}")
