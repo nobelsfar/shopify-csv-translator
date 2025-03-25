@@ -8,7 +8,7 @@ import PyPDF2
 import io
 import json
 
-# Vælg den korrekte sti til state-filen
+# Vælg den korrekte sti til state-filen. På Streamlit Cloud bruges /mnt/data, ellers gemmes der lokalt.
 if os.path.exists("/mnt/data") and os.access("/mnt/data", os.W_OK):
     STATE_FILE = "/mnt/data/state.json"
 else:
@@ -29,7 +29,7 @@ def load_state():
         initialize_state()
 
 def save_state():
-    # Sørg for, at mappen til state-filen findes, hvis vi bruger en sti med mappe
+    # Sørg for, at mappen til state-filen findes
     folder = os.path.dirname(STATE_FILE)
     if folder and not os.path.exists(folder):
         try:
@@ -99,7 +99,6 @@ for name in profile_names:
             if st.session_state["current_profile"] == name:
                 st.session_state["current_profile"] = "Standard profil"
             save_state()
-
 if st.sidebar.button("Opret ny profil"):
     new_profile_name = f"Ny profil {len(profile_names) + 1}"
     st.session_state["profiles"][new_profile_name] = {"brand_profile": "", "blacklist": "", "produkt_info": ""}
@@ -116,7 +115,7 @@ if current_data.get("brand_profile", "").strip():
 else:
     st.sidebar.info("Ingen virksomhedsprofil fundet endnu.")
 
-# Side til redigering af virksomhedsprofil
+# Side: Redigér virksomhedsprofil
 if st.session_state["page"] == "profil":
     st.header("Redigér virksomhedsprofil")
     current_profile_name = st.text_input("Navn på virksomhedsprofil:",
@@ -166,13 +165,11 @@ if st.session_state["page"] == "profil":
             reader = PyPDF2.PdfReader(produkt_data)
             for page in reader.pages:
                 extracted += page.extract_text()
-        
         st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = extracted
         current_data["produkt_info"] = extracted
         save_state()
         st.success("Produktinformation gemt!")
     
-    # Mulighed for at redigere produktdata manuelt
     produkt_info_manual = st.text_area("Eller indsæt produktdata manuelt:", current_data.get("produkt_info", ""), height=150)
     if st.button("Gem produktdata", key="save_product_info"):
         st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = produkt_info_manual
@@ -180,15 +177,12 @@ if st.session_state["page"] == "profil":
         save_state()
         st.success("Produktdata opdateret!")
 
-# Side til generering af SEO-tekster
+# Side: Generér SEO-tekst
 if st.session_state["page"] == "seo":
     st.header("Generér SEO-tekst")
     
-    # Vis nuværende virksomhedsprofil
     st.subheader("Virksomhedsprofil")
     st.markdown(current_data.get("brand_profile", "Ingen profiltekst fundet."))
-    
-    # Bemærk: Produktdata vises ikke her, men hentes bag kulisserne til prompten.
     
     # Inputfelter for SEO-parametre
     seo_keyword = st.text_input("Søgeord / Emne", value="")
@@ -196,15 +190,10 @@ if st.session_state["page"] == "seo":
     tone = st.selectbox("Vælg tone-of-voice",
                         options=["Neutral", "Formel", "Venlig", "Entusiastisk"],
                         index=0)
+    antal = st.selectbox("Antal tekster", options=list(range(1, 11)), index=0)
     
-    # Kun vis genereringsmuligheder, hvis der er et søgeord
     if seo_keyword:
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            generate = st.button("Generér SEO-tekst")
-        with col2:
-            antal = st.selectbox("Antal tekster", options=list(range(1, 11)), index=0)
-        
+        generate = st.button("Generér SEO-tekst")
         if generate:
             with st.spinner("Genererer SEO-tekst..."):
                 for i in range(antal):
@@ -212,13 +201,14 @@ if st.session_state["page"] == "seo":
                         f"Skriv en SEO-optimeret tekst på dansk om '{seo_keyword}'. "
                         f"Brug følgende virksomhedsprofil som reference: {current_data.get('brand_profile', '')}. "
                         f"Brug også følgende produktinformation: {current_data.get('produkt_info', '')}. "
-                        f"Strukturer teksten med SEO-venlige overskrifter (h1, h2, h3) og brug relevante nøgleord i overskrifterne. "
+                        f"Inkluder en meta-titel, en meta-beskrivelse og SEO-venlige overskrifter (h1, h2, h3). "
+                        f"Inkluder relevante nøgleord naturligt og foreslå interne links, hvor det er relevant. "
                         f"Teksten skal være cirka {laengde} ord lang."
                     )
                     if tone:
                         seo_prompt += f" Teksten skal have en '{tone}' tone-of-voice."
                     if current_data.get("blacklist", "").strip():
-                        seo_prompt += f" Undgå følgende ord eller sætninger i teksten: {current_data['blacklist']}."
+                        seo_prompt += f" Undgå følgende ord eller sætninger: {current_data['blacklist']}."
                     
                     try:
                         seo_response = client.chat.completions.create(
@@ -230,7 +220,6 @@ if st.session_state["page"] == "seo":
                         st.session_state["generated_texts"].append(seo_text)
                     except Exception as e:
                         st.error(f"Fejl ved generering af tekst: {e}")
-            
             if st.session_state["generated_texts"]:
                 st.subheader("Dine genererede SEO-tekster")
                 for idx, txt in enumerate(st.session_state["generated_texts"]):
