@@ -69,8 +69,8 @@ if st.sidebar.button("Opret ny profil"):
 
 
 current_data = st.session_state["profiles"].get(st.session_state["current_profile"], {"brand_profile": "", "blacklist": "", "produkt_info": ""})
-if "brand_profile" in st.session_state and current_data["brand_profile"].strip():
-    st.sidebar.markdown(st.session_state["brand_profile"])
+if current_data.get("brand_profile", "").strip():
+    st.sidebar.markdown(current_data["brand_profile"])
 else:
     st.sidebar.info("Ingen virksomhedsprofil fundet endnu.")
 
