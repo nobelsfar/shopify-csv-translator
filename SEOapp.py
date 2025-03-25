@@ -8,8 +8,11 @@ import PyPDF2
 import io
 import json
 
-# Definer stien til state-filen. På Streamlit Cloud kan du bruge /mnt/data.
-STATE_FILE = "/mnt/data/state.json"
+# Vælg den korrekte sti til state-filen
+if os.path.exists("/mnt/data") and os.access("/mnt/data", os.W_OK):
+    STATE_FILE = "/mnt/data/state.json"
+else:
+    STATE_FILE = "state.json"
 
 def load_state():
     if os.path.exists(STATE_FILE):
@@ -26,8 +29,13 @@ def load_state():
         initialize_state()
 
 def save_state():
-    # Sørg for, at mappen til state-filen findes
-    os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+    # Sørg for, at mappen til state-filen findes, hvis vi bruger en sti med mappe
+    folder = os.path.dirname(STATE_FILE)
+    if folder and not os.path.exists(folder):
+        try:
+            os.makedirs(folder, exist_ok=True)
+        except Exception as e:
+            st.error(f"Fejl ved oprettelse af mappe til state: {e}")
     state = {
         "profiles": st.session_state.get("profiles", {}),
         "api_key": st.session_state.get("api_key", ""),
