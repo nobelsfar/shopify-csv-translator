@@ -45,6 +45,13 @@ if st.session_state["page"] == "profil":
         st.success("Profil opdateret!")
 
     st.markdown("---")
+    st.subheader("Ord/sætninger AI ikke må bruge")
+    blacklist = st.text_area("Skriv ord eller sætninger adskilt med komma:", st.session_state.get("blacklist", ""))
+    if st.button("Gem begrænsninger"):
+        st.session_state["blacklist"] = blacklist
+        st.success("Begrænsninger gemt!")
+
+    st.markdown("---")
     st.subheader("Upload eller indsæt produktdata")
     produkt_data = st.file_uploader("Upload CSV, Excel eller PDF", type=["csv", "xlsx", "pdf"])
     if produkt_data:
@@ -66,7 +73,7 @@ elif st.session_state["page"] == "seo":
     if "brand_profile" in st.session_state and st.session_state["brand_profile"].strip():
         st.subheader("Generér SEO-tekst")
         seo_keyword = st.text_input("SEO søgeord/emne for tekst")
-        tone = st.text_input("Tone-of-voice (valgfri, fx: venlig, professionel, eksklusiv)")
+        tone = st.selectbox("Tone-of-voice", ["Professionel", "Venlig", "Eksklusiv", "Teknisk", "Inspirerende", "Neutral", "Kreativ"], index=0)
         laengde = st.number_input("Ønsket tekstlængde (ord)", min_value=100, max_value=1500, value=300)
 
         if st.button("Generér SEO-tekst"):
@@ -79,6 +86,9 @@ elif st.session_state["page"] == "seo":
 
             if tone:
                 seo_prompt += f" Teksten skal have en '{tone}' tone-of-voice."
+
+            if "blacklist" in st.session_state and st.session_state["blacklist"].strip():
+                seo_prompt += f" Undgå følgende ord eller sætninger i teksten: {st.session_state['blacklist']}."
 
             seo_response = client.chat.completions.create(
                 model="gpt-4-turbo",
