@@ -41,7 +41,8 @@ def save_state():
         "api_key": st.session_state.get("api_key", ""),
         "page": st.session_state.get("page", "seo"),
         "generated_texts": st.session_state.get("generated_texts", []),
-        "current_profile": st.session_state.get("current_profile", "Standard profil")
+        "current_profile": st.session_state.get("current_profile", "Standard profil"),
+        "delete_profile": st.session_state.get("delete_profile", None)
     }
     try:
         with open(STATE_FILE, "w") as f:
@@ -55,6 +56,7 @@ def initialize_state():
     st.session_state["page"] = "seo"
     st.session_state["generated_texts"] = []
     st.session_state["current_profile"] = "Standard profil"
+    st.session_state["delete_profile"] = None
     save_state()
 
 # Indlæs eller initialiser state ved app-start
@@ -82,7 +84,8 @@ st.sidebar.markdown("---")
 st.sidebar.header("Virksomhedsprofiler")
 
 profile_names = list(st.session_state["profiles"].keys())
-# Vis profiler med slet-knap; klik på et profilnavn fører til redigering
+
+# Vis profiler med slet-ikon ved siden af profilnavnet
 for name in profile_names:
     col1, col2 = st.sidebar.columns([4, 1])
     with col1:
@@ -91,11 +94,28 @@ for name in profile_names:
             st.session_state["page"] = "profil"
             save_state()
     with col2:
-        if st.sidebar.button("🗑", key=f"delete_{name}"):
-            st.session_state["profiles"].pop(name)
-            if st.session_state["current_profile"] == name:
-                st.session_state["current_profile"] = "Standard profil"
+        if st.button("🗑", key=f"delete_{name}"):
+            st.session_state["delete_profile"] = name
             save_state()
+
+# Hvis der trykkes på slet-ikonet, vis en bekræftelsesboks
+if st.session_state.get("delete_profile"):
+    profile_to_delete = st.session_state["delete_profile"]
+    st.sidebar.warning(f"Er du sikker på, at du vil slette profilen '{profile_to_delete}'?")
+    col_confirm, col_cancel = st.sidebar.columns(2)
+    with col_confirm:
+        if st.button("Ja, slet"):
+            st.session_state["profiles"].pop(profile_to_delete, None)
+            if st.session_state["current_profile"] == profile_to_delete:
+                st.session_state["current_profile"] = "Standard profil"
+            st.session_state["delete_profile"] = None
+            save_state()
+            st.experimental_rerun()
+    with col_cancel:
+        if st.button("Nej, annuller"):
+            st.session_state["delete_profile"] = None
+            save_state()
+
 if st.sidebar.button("Opret ny profil"):
     new_profile_name = f"Ny profil {len(profile_names) + 1}"
     st.session_state["profiles"][new_profile_name] = {"brand_profile": "", "blacklist": "", "produkt_info": ""}
@@ -228,6 +248,6 @@ if st.session_state["page"] == "seo":
                         st.download_button(f"Download tekst {idx+1}",
                                            txt,
                                            file_name=f"seo_tekst_{idx+1}.txt")
-                        if st.button(f"❌ Slet tekst {idx+1}", key=f"delete_{idx}"):
+                        if st.button(f"❌ Slet tekst {idx+1}", key=f"delete_text_{idx}"):
                             st.session_state["generated_texts"].pop(idx)
                             save_state()
