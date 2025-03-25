@@ -100,8 +100,9 @@ if st.session_state["page"] == "profil":
             current_data = st.session_state["profiles"][current_profile_name]
             save_profiles_to_file()
     
+    # Redigér profiltekst
     profil_tekst = st.text_area("Redigér profil her:", current_data.get("brand_profile", ""), height=200)
-    if st.button("Gem ændringer"):
+    if st.button("Gem ændringer", key="save_profile"):
         st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = profil_tekst
         save_profiles_to_file()
         st.success("Profil opdateret!")
@@ -109,32 +110,17 @@ if st.session_state["page"] == "profil":
     st.markdown("---")
     st.subheader("Ord/sætninger AI ikke må bruge")
     blacklist = st.text_area("Skriv ord eller sætninger adskilt med komma:", current_data.get("blacklist", ""))
-    if st.button("Gem begrænsninger"):
+    if st.button("Gem begrænsninger", key="save_blacklist"):
         st.session_state["profiles"][st.session_state["current_profile"]]["blacklist"] = blacklist
         save_profiles_to_file()
         st.success("Begrænsninger gemt!")
-
-# Side til generering af SEO-tekster
-if st.session_state["page"] == "seo":
-    st.header("Generér SEO-tekst")
-    
-    # Vis nuværende virksomhedsprofil
-    st.subheader("Virksomhedsprofil")
-    st.markdown(current_data.get("brand_profile", "Ingen profiltekst fundet."))
-    
-    # Inputfelter for SEO-parametre
-    seo_keyword = st.text_input("Søgeord / Emne", value="")
-    laengde = st.number_input("Ønsket tekstlængde (antal ord)", min_value=50, max_value=2000, value=300, step=50)
-    tone = st.selectbox("Vælg tone-of-voice",
-                        options=["Neutral", "Formel", "Venlig", "Entusiastisk"],
-                        index=0)
     
     st.markdown("---")
     st.subheader("Upload eller indsæt produktdata")
+    st.info("Upload en CSV, Excel eller PDF-fil med produktdata. Denne information gemmes under din profil.")
     produkt_data = st.file_uploader("Upload CSV, Excel eller PDF",
                                     type=["csv", "xlsx", "pdf"],
                                     key=f"produkt_upload_{st.session_state['current_profile']}")
-    
     if produkt_data:
         st.write(f"🔄 Fil uploadet: {produkt_data.name}")
         extracted = ""
@@ -149,15 +135,43 @@ if st.session_state["page"] == "seo":
             for page in reader.pages:
                 extracted += page.extract_text()
         
-        # Gem produktinfo i profilen
         st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = extracted
         current_data["produkt_info"] = extracted
-        st.success("Produktinformation hentet.")
-    else:
-        st.info("Upload produktdata for at generere SEO-tekster.")
+        save_profiles_to_file()
+        st.success("Produktinformation gemt!")
     
-    # Vis genereringsmuligheder, hvis både produktdata og søgeord er til stede
-    if produkt_data and seo_keyword:
+    # Mulighed for at redigere produktdata manuelt
+    produkt_info_manual = st.text_area("Eller indsæt produktdata manuelt:", current_data.get("produkt_info", ""), height=150)
+    if st.button("Gem produktdata", key="save_product_info"):
+        st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = produkt_info_manual
+        current_data["produkt_info"] = produkt_info_manual
+        save_profiles_to_file()
+        st.success("Produktdata opdateret!")
+
+# Side til generering af SEO-tekster
+if st.session_state["page"] == "seo":
+    st.header("Generér SEO-tekst")
+    
+    # Vis nuværende virksomhedsprofil
+    st.subheader("Virksomhedsprofil")
+    st.markdown(current_data.get("brand_profile", "Ingen profiltekst fundet."))
+    
+    # Vis produktdata, hvis der findes
+    st.subheader("Produktdata")
+    if current_data.get("produkt_info", "").strip():
+        st.markdown(current_data.get("produkt_info", ""))
+    else:
+        st.info("Ingen produktdata fundet. Tilføj produktdata under 'Redigér virksomhedsprofil'.")
+    
+    # Inputfelter for SEO-parametre
+    seo_keyword = st.text_input("Søgeord / Emne", value="")
+    laengde = st.number_input("Ønsket tekstlængde (antal ord)", min_value=50, max_value=2000, value=300, step=50)
+    tone = st.selectbox("Vælg tone-of-voice",
+                        options=["Neutral", "Formel", "Venlig", "Entusiastisk"],
+                        index=0)
+    
+    # Kun vis genereringsmuligheder, hvis der er et søgeord
+    if seo_keyword:
         col1, col2 = st.columns([3, 1])
         with col1:
             generate = st.button("Generér SEO-tekst")
