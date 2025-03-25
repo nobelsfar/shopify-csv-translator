@@ -59,7 +59,7 @@ for name in profile_names:
             st.session_state["current_profile"] = name
             st.session_state["page"] = "profil"
             st.session_state["rerun_flag"] = True
-            st.stop()
+            st.experimental_rerun()
     with col2:
         if st.button("🗑", key=f"delete_{name}"):
             st.session_state["profiles"].pop(name)
