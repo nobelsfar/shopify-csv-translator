@@ -79,6 +79,25 @@ if st.session_state["page"] == "profil":
         st.session_state['produkt_data'] = None
 
     produkt_data = st.file_uploader("Upload CSV, Excel eller PDF", type=["csv", "xlsx", "pdf"], key=f"produkt_upload_{st.session_state['current_profile']}")
+
+    if produkt_data:
+        st.session_state['produkt_data'] = produkt_data
+        st.write(f"🔄 Fil uploadet: {produkt_data.name}")
+        extracted = ""
+        if produkt_data.name.endswith(".csv"):
+            df = pd.read_csv(produkt_data)
+            extracted = df.to_string(index=False)
+        elif produkt_data.name.endswith(".xlsx"):
+            df = pd.read_excel(produkt_data)
+            extracted = df.to_string(index=False)
+        elif produkt_data.name.endswith(".pdf"):
+            reader = PyPDF2.PdfReader(produkt_data)
+            for page in reader.pages:
+                extracted += page.extract_text()
+
+        st.session_state['profiles'][st.session_state['current_profile']]['produkt_info'] = extracted
+        current_data['produkt_info'] = extracted
+        col1, col2 = st.columns([3, 1])
         with col1:
             generate = st.button("Generér SEO-tekst")
         with col2:
