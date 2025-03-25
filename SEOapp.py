@@ -10,6 +10,8 @@ if "api_key" not in st.session_state:
     st.session_state["api_key"] = ""
 if "page" not in st.session_state:
     st.session_state["page"] = "seo"
+if "generated_texts" not in st.session_state:
+    st.session_state["generated_texts"] = []
 
 st.title("📝 Skriv SEO-tekster med AI")
 
@@ -24,14 +26,14 @@ if not st.session_state["api_key"]:
 client = openai.OpenAI(api_key=st.session_state["api_key"])
 
 # Sidebar med navigation
-st.sidebar.header("🔧 Navigation")
-if st.sidebar.button("📝 Skriv SEO-tekst"):
+st.sidebar.header("Navigation")
+if st.sidebar.button("Skriv SEO-tekst"):
     st.session_state["page"] = "seo"
-if st.sidebar.button("✏️ Redigér virksomhedsprofil"):
+if st.sidebar.button("Redigér virksomhedsprofil"):
     st.session_state["page"] = "profil"
 
 st.sidebar.markdown("---")
-st.sidebar.header("📁 Din virksomhedsprofil")
+st.sidebar.header("Virksomhedsprofil")
 if "brand_profile" in st.session_state and st.session_state["brand_profile"].strip():
     st.sidebar.markdown(st.session_state["brand_profile"])
 else:
@@ -104,10 +106,16 @@ elif st.session_state["page"] == "seo":
                 )
 
                 seo_text = seo_response.choices[0].message.content.strip()
-                st.text_area(f"Genereret SEO-tekst {i+1}:", seo_text, height=400, key=f"seo_{i}")
+                st.session_state["generated_texts"].append(seo_text)
 
-                st.download_button(
-                    f"Download tekst {i+1}", seo_text, file_name=f"seo_tekst_{i+1}.txt"
-                )
+        if st.session_state["generated_texts"]:
+            st.subheader("Dine genererede SEO-tekster")
+            for idx, txt in enumerate(st.session_state["generated_texts"]):
+                with st.expander(f"SEO-tekst {idx+1}"):
+                    st.markdown(txt, unsafe_allow_html=True)
+                    st.download_button(f"Download tekst {idx+1}", txt, file_name=f"seo_tekst_{idx+1}.txt")
+                    if st.button(f"❌ Slet tekst {idx+1}", key=f"delete_{idx}"):
+                        st.session_state["generated_texts"].pop(idx)
+                        st.experimental_rerun()
     else:
         st.info("Start med at oprette en virksomhedsprofil i sidepanelet for at kunne generere SEO-tekster.")
