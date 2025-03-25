@@ -9,6 +9,7 @@ import io
 import json
 import requests
 from bs4 import BeautifulSoup
+import math
 
 # Vælg den korrekte sti til state-filen. På Streamlit Cloud bruges /mnt/data/state.json, ellers gemmes lokalt.
 if os.path.exists("/mnt/data") and os.access("/mnt/data", os.W_OK):
@@ -17,7 +18,6 @@ else:
     STATE_FILE = "state.json"
 
 def load_state():
-    """Loader session_state fra STATE_FILE, hvis den findes."""
     if os.path.exists(STATE_FILE):
         try:
             with open(STATE_FILE, "r") as f:
@@ -31,7 +31,6 @@ def load_state():
         initialize_state()
 
 def save_state():
-    """Gemmer session_state til STATE_FILE."""
     folder = os.path.dirname(STATE_FILE)
     if folder and not os.path.exists(folder):
         try:
@@ -53,7 +52,6 @@ def save_state():
         st.error(f"Fejl ved gemning af state: {e}")
 
 def initialize_state():
-    """Initialiserer session_state med standardværdier."""
     st.session_state["profiles"] = {}
     st.session_state["api_key"] = ""
     st.session_state["page"] = "seo"
@@ -61,6 +59,14 @@ def initialize_state():
     st.session_state["current_profile"] = "Standard profil"
     st.session_state["delete_profile"] = None
     save_state()
+
+def chunk_list(lst, size):
+    """
+    Returnerer en liste af mindre lister (batches) med længde 'size',
+    fx chunk_list([1,2,3,4,5,6,7], 3) -> [[1,2,3],[4,5,6],[7]]
+    """
+    for i in range(0, len(lst), size):
+        yield lst[i:i + size]
 
 def fetch_product_links(url):
     """
@@ -72,12 +78,10 @@ def fetch_product_links(url):
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
-        # Vi kigger efter alle <a href=...> med /products/
         for a_tag in soup.find_all("a", href=True):
             href = a_tag["href"]
             if href.startswith("/products/"):
                 full = "https://noyer.dk" + href
-                # UNDGÅ DUPLIKATER:
                 if full not in links:
                     links.append(full)
     except Exception as e:
@@ -87,36 +91,38 @@ def fetch_product_links(url):
 def fetch_product_description(url):
     """
     Henter en produktside og forsøger at finde .product-info__description.
-    Hvis den ikke findes, tager vi hele sidens tekst som fallback.
+    Hvis den ikke findes, tager vi hele sidens tekst.
     """
     try:
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
-        # Ændret til .product-info__description efter dit screenshot
         desc_elem = soup.select_one(".product-info__description")
         if desc_elem:
             return desc_elem.get_text(separator=" ", strip=True)
         else:
-            # fallback, hvis .product-info__description ikke findes
             return soup.get_text(separator=" ", strip=True)
     except Exception as e:
         st.error(f"Fejl ved hentning af {url}: {e}")
         return ""
 
-def create_product_json_from_bigtext(big_text, count):
+def create_product_json_from_bigtext(big_text, offset_idx=0):
     """
-    Sender big_text til GPT og beder om et JSON-array 'produkter'
-    med nøjagtig `count` objekter (ét for hver side).
+    Sender en portion big_text til GPT og beder om et JSON-array 'produkter'
+    med nøjagtig så mange items, som vi har i denne bid.
+    'offset_idx' bruges hvis vi vil indikere at denne chunk fx er fra side 10-15.
     """
+    # Tæl, hvor mange === PRODUCT PAGE-linjer vi har
+    count = big_text.count("=== PRODUCT PAGE")
     prompt = (
         f"Her følger tekst fra {count} produktsider (Noyer). "
         f"Returnér et JSON-array 'produkter' med nøjagtig {count} objekter – "
-        f"én for hver produktside i rækkefølge. "
-        "For hvert produkt skal du udfylde:\n"
+        f"én for hver produktside i rækkefølge (offset {offset_idx}). "
+        "For hvert produkt:\n"
         " - 'navn': Produktets navn\n"
         " - 'beskrivelse': 4-5 sætninger uden at nævne pris\n"
-        " - 'materialer': hvis muligt, ellers 'Ukendt'.\n\n"
+        " - 'materialer': hvis muligt, ellers 'Ukendt'.\n"
+        "Ignorér alt om 'Spring til indhold' og 'DKK kr'.\n\n"
         "Ingen triple backticks, ingen disclaimers, kun valid JSON!\n\n"
         f"{big_text[:12000]}"
     )
@@ -228,8 +234,10 @@ else:
 if st.session_state["page"] == "profil":
     st.header("Redigér virksomhedsprofil")
 
-    current_profile_name = st.text_input("Navn på virksomhedsprofil:",
-                                         value=st.session_state["current_profile"])
+    current_profile_name = st.text_input(
+        "Navn på virksomhedsprofil:",
+        value=st.session_state["current_profile"]
+    )
     if current_profile_name != st.session_state["current_profile"]:
         old_name = st.session_state["current_profile"]
         if current_profile_name.strip():
@@ -266,39 +274,55 @@ if st.session_state["page"] == "profil":
                     st.error(f"Fejl ved generering af virksomhedsprofil: {e}")
 
     # Flertrins-scraping PRODUKTER
-    st.subheader("Automatisk udfyld PRODUKTER (flertrins-scraping + AI)")
+    st.subheader("Automatisk udfyld PRODUKTER (flertrins-scraping + AI m. chunking)")
     url_collection = st.text_input("URL til f.eks. https://noyer.dk/collections/all")
+    CHUNK_SIZE = st.number_input("Antal produkter pr chunk", min_value=1, max_value=10, value=5, step=1)
+
     if st.button("Hent og generer produkter"):
         if url_collection.strip():
             with st.spinner("1) Henter links til alle produkter..."):
                 links = fetch_product_links(url_collection.strip())
-                st.write(f"Antal fundne produktlinks: {len(links)}")
+                st.write(f"Antal fundne produktlinks (unika): {len(links)}")
                 if len(links) == 0:
                     st.warning("Fandt ingen /products/-links. Mangler JavaScript? Forkert URL? CSS-problem?")
                 else:
                     st.write("Fundne links (viser kun top 10):", links[:10], "...")
-                    big_text = ""
-                    with st.spinner("2) Henter beskrivelser fra hver produktside..."):
-                        idx_num = 0
-                        for lnk in links:
-                            idx_num += 1
-                            desc = fetch_product_description(lnk)
-                            st.markdown(f"**Produkt {idx_num}:** {lnk}")
-                            # Unikt label => "Ekstrakt {idx_num}"
-                            st.text_area(f"Ekstrakt {idx_num}:", desc[:200], height=80)
-                            big_text += f"\n\n=== PRODUCT PAGE {idx_num}: {lnk} ===\n{desc}"
+                    all_products = []
+                    total_links = len(links)
+                    chunked_links = list(chunk_list(links, CHUNK_SIZE))
+                    chunk_count = len(chunked_links)
 
-                    with st.spinner(f"3) Sender samlet tekst til GPT for at få nøjagtig {len(links)} JSON-objekter..."):
-                        try:
-                            products_data = create_product_json_from_bigtext(big_text, len(links))
-                            product_str = json.dumps(products_data, ensure_ascii=False, indent=2)
-                            st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = product_str
-                            current_data["produkt_info"] = product_str
-                            save_state()
-                            st.success(f"Gemte produktlisten i 'produkt_info' – forventet {len(links)} items!")
-                            st.text_area("Produkter (JSON fra AI)", product_str, height=250)
-                        except Exception as e:
-                            st.error(f"Fejl ved generering af produktliste: {e}")
+                    # For hver chunk henter vi text, laver big_text, kalder GPT
+                    current_offset = 0
+
+                    for c_idx, chunk in enumerate(chunked_links):
+                        with st.spinner(f"Behandler chunk {c_idx+1}/{chunk_count}..."):
+                            big_text = ""
+                            for i, lnk in enumerate(chunk):
+                                desc = fetch_product_description(lnk)
+                                st.markdown(f"**Produkt i chunk {c_idx+1} nr. {i+1}:** {lnk}")
+                                st.text_area(f"Ekstrakt chunk {c_idx+1}-{i+1}:", desc[:200], height=80)
+                                big_text += f"\n\n=== PRODUCT PAGE {current_offset+i+1}: {lnk} ===\n{desc}"
+
+                            # Nu kalder vi GPT for denne chunk
+                            try:
+                                chunk_json = create_product_json_from_bigtext(big_text, offset_idx=current_offset)
+                                # chunk_json er en liste af items, tilføj dem
+                                if isinstance(chunk_json, list):
+                                    all_products.extend(chunk_json)
+                                else:
+                                    st.warning("GPT returnerede ikke en liste.")
+                            except Exception as e:
+                                st.error(f"Fejl ved chunk {c_idx+1} GPT-kald: {e}")
+                        current_offset += len(chunk)
+
+                    # Nu har vi all_products for hele kollektionen
+                    product_str = json.dumps(all_products, ensure_ascii=False, indent=2)
+                    st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = product_str
+                    current_data["produkt_info"] = product_str
+                    save_state()
+                    st.success(f"Færdig! Samlet {len(all_products)} items i produkt_info.")
+                    st.text_area("Samlet JSON (alle chunks)", product_str, height=300)
         else:
             st.warning("Indtast venligst en URL til kollektion.")
 
