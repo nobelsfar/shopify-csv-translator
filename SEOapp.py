@@ -91,8 +91,11 @@ elif st.session_state["page"] == "seo":
                 produkt_info = st.session_state.get('produkt_info', '')
                 seo_prompt = (
                     f"Skriv en SEO-optimeret tekst på dansk om '{seo_keyword}'. "
-                    f"Brug følgende virksomhedsprofil som reference: {st. Brug også følgende produktinformation: {produkt_info}.session_state['brand_profile']}. "
+                    f"Brug følgende virksomhedsprofil som reference: {st.session_state['brand_profile']}. "
+                    f"Brug også følgende produktinformation: {produkt_info}. "
                     f"Strukturer teksten med SEO-venlige overskrifter (h1, h2, h3) og brug relevante nøgleord i overskrifterne. "
+                    f"Teksten skal være cirka {laengde} ord lang."
+                ) og brug relevante nøgleord i overskrifterne. "
                     f"Teksten skal være cirka {laengde} ord lang."
                 )
 
