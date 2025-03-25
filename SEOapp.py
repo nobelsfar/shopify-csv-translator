@@ -21,40 +21,70 @@ if not st.session_state["api_key"]:
 
 client = openai.OpenAI(api_key=st.session_state["api_key"])
 
-# Upload materiale
-st.header("Upload virksomheds- eller produktinformation")
-uploaded_file = st.file_uploader("Upload en CSV-, Excel- eller PDF-fil med information om din virksomhed eller produkter", type=["csv", "xlsx", "pdf"])
-extracted_text = ""
+# Chatbaseret virksomhedsgenerering
+st.header("Fortæl om din virksomhed (chat med AI)")
 
-if uploaded_file:
-    if uploaded_file.name.endswith(".csv"):
-        df = pd.read_csv(uploaded_file)
-        extracted_text = df.to_string(index=False)
-    elif uploaded_file.name.endswith(".xlsx"):
-        df = pd.read_excel(uploaded_file)
-        extracted_text = df.to_string(index=False)
-    elif uploaded_file.name.endswith(".pdf"):
-        reader = PyPDF2.PdfReader(uploaded_file)
-        for page in reader.pages:
-            extracted_text += page.extract_text()
+if "chat_history" not in st.session_state:
+    st.session_state["chat_history"] = [
+        {"role": "system", "content": "Du er en brandingekspert. Stil relevante spørgsmål og hjælp brugeren med at formulere en virksomhedsprofil."},
+        {"role": "assistant", "content": "Hej! Fortæl mig lidt om din virksomhed. Hvad sælger I, og hvem er jeres kunder?"}
+    ]
 
-if extracted_text:
-    st.subheader("Uddraget tekst fra dit materiale")
-    st.text_area("Ekstraheret tekst (redigér hvis nødvendigt)", extracted_text, height=200, key="raw_info")
+for msg in st.session_state["chat_history"]:
+    if msg["role"] == "user":
+        st.chat_message("user").markdown(msg["content"])
+    elif msg["role"] == "assistant":
+        st.chat_message("assistant").markdown(msg["content"])
 
-    if st.button("Analyser og generér virksomhedsprofil med AI"):
-        prompt = (
-            "Du er en brandingekspert. Brug følgende tekstuddrag til at generere en virksomhedsprofil. "
-            "Inkludér brandets kerneværdier, målgruppe, produkttype og en tone-of-voice. "
-            f"Her er teksten: {st.session_state['raw_info']}"
-        )
-        response = client.chat.completions.create(
-            model="gpt-4-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=500
-        )
-        st.session_state["brand_profile"] = response.choices[0].message.content.strip()
-        st.success("Profil genereret! Du kan rette den nedenfor.")
+user_input = st.chat_input("Skriv dit svar eller spørgsmål...")
+if user_input:
+    st.session_state["chat_history"].append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    response = client.chat.completions.create(
+        model="gpt-4-turbo",
+        messages=st.session_state["chat_history"],
+        max_tokens=500
+    )
+    reply = response.choices[0].message.content.strip()
+    st.session_state["chat_history"].append({"role": "assistant", "content": reply})
+    with st.chat_message("assistant"):
+        st.markdown(reply)
+
+# Mulighed for upload i stedet for chat
+with st.expander("⬆️ Eller upload filer med virksomhedsdata"):
+    uploaded_file = st.file_uploader("Upload CSV, Excel eller PDF", type=["csv", "xlsx", "pdf"])
+    extracted_text = ""
+
+    if uploaded_file:
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+            extracted_text = df.to_string(index=False)
+        elif uploaded_file.name.endswith(".xlsx"):
+            df = pd.read_excel(uploaded_file)
+            extracted_text = df.to_string(index=False)
+        elif uploaded_file.name.endswith(".pdf"):
+            reader = PyPDF2.PdfReader(uploaded_file)
+            for page in reader.pages:
+                extracted_text += page.extract_text()
+
+    if extracted_text:
+        st.text_area("Ekstraheret tekst (redigér hvis nødvendigt)", extracted_text, height=200, key="raw_info")
+
+        if st.button("Generér virksomhedsprofil ud fra uploadet tekst"):
+            prompt = (
+                "Du er en brandingekspert. Brug følgende tekstuddrag til at generere en virksomhedsprofil. "
+                "Inkludér brandets kerneværdier, målgruppe, produkttype og en tone-of-voice. "
+                f"Her er teksten: {st.session_state['raw_info']}"
+            )
+            response = client.chat.completions.create(
+                model="gpt-4-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500
+            )
+            st.session_state["brand_profile"] = response.choices[0].message.content.strip()
+            st.success("Profil genereret! Du kan rette den nedenfor.")
 
 # Redigering og SEO-tekstgenerering
 if "brand_profile" in st.session_state:
