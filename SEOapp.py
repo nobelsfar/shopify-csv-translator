@@ -213,9 +213,11 @@ if st.session_state["page"] == "profil":
         if product_url:
             raw_text = fetch_website_content(product_url)
             if raw_text:
+                # Fjernet 'pris' i prompten
                 prompt = (
                     "Analysér teksten herunder og returnér KUN en JSON-liste med 'produkter'. "
-                    "Hver liste-post skal indeholde mindst: navn, kort beskrivelse, materialer, pris (eller 'Ukendt').\n\n"
+                    "Hver liste-post skal indeholde mindst: navn, kort beskrivelse, materialer (hvis muligt). "
+                    "Returnér kun valid JSON. Ingen ekstra tekst.\n\n"
                     f"{raw_text[:7000]}"
                 )
                 try:
