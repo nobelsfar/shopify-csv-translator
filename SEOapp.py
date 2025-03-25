@@ -65,6 +65,7 @@ if st.session_state["page"] == "profil":
         elif produkt_data.name.endswith(".xlsx"):
             df = pd.read_excel(produkt_data)
             extracted = df.to_string(index=False)
+            st.session_state['produkt_info'] = extracted
         elif produkt_data.name.endswith(".pdf"):
             reader = PyPDF2.PdfReader(produkt_data)
             for page in reader.pages:
