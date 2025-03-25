@@ -7,6 +7,8 @@ import pandas as pd
 import PyPDF2
 import io
 import json
+import requests
+from bs4 import BeautifulSoup
 
 # Vælg den korrekte sti til state-filen. På Streamlit Cloud bruges /mnt/data, ellers gemmes der lokalt.
 if os.path.exists("/mnt/data") and os.access("/mnt/data", os.W_OK):
@@ -59,6 +61,21 @@ def initialize_state():
     st.session_state["delete_profile"] = None
     save_state()
 
+# Funktion til at hente og udtrække tekst fra en hjemmeside
+def fetch_website_content(url):
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        # Fjern script- og style-tags
+        for script in soup(["script", "style"]):
+            script.decompose()
+        text = soup.get_text(separator=' ', strip=True)
+        return text
+    except Exception as e:
+        st.error(f"Fejl ved hentning af hjemmesideindhold: {e}")
+        return None
+
 # Indlæs eller initialiser state ved app-start
 load_state()
 
@@ -110,7 +127,6 @@ if st.session_state.get("delete_profile"):
                 st.session_state["current_profile"] = "Standard profil"
             st.session_state["delete_profile"] = None
             save_state()
-            # Vi fjerner st.experimental_rerun() her for at undgå fejl.
     with col_cancel:
         if st.button("Nej, annuller"):
             st.session_state["delete_profile"] = None
@@ -135,11 +151,11 @@ else:
 # Side: Redigér virksomhedsprofil
 if st.session_state["page"] == "profil":
     st.header("Redigér virksomhedsprofil")
+    
+    # Vælg profilnavn
     current_profile_name = st.text_input("Navn på virksomhedsprofil:",
                                            value=st.session_state["current_profile"],
                                            key="profile_name_display")
-    
-    # Opdater profilnavn, hvis det ændres
     if current_profile_name != st.session_state["current_profile"]:
         old_name = st.session_state["current_profile"]
         if current_profile_name.strip():
@@ -148,7 +164,37 @@ if st.session_state["page"] == "profil":
             current_data = st.session_state["profiles"][current_profile_name]
             save_state()
     
-    # Redigér profiltekst
+    # Ny sektion: Automatisk udfyld profil med hjemmesideinformation
+    st.subheader("Automatisk udfyld profil")
+    website_url = st.text_input("Indtast URL til din hjemmeside for automatisk profilgenerering:")
+    if st.button("Hent og generer profil"):
+        if website_url:
+            website_text = fetch_website_content(website_url)
+            if website_text:
+                prompt = (
+                    "Giv en detaljeret virksomhedsprofil, der beskriver virksomhedens produkter, historie og kerneværdier "
+                    "baseret på følgende hjemmesideindhold:\n\n" + website_text
+                )
+                try:
+                    response = client.ChatCompletion.create(
+                        model="gpt-4-turbo",
+                        messages=[{"role": "user", "content": prompt}],
+                        max_tokens=500
+                    )
+                    generated_profile = response.choices[0].message.content.strip()
+                    st.text_area("Genereret virksomhedsprofil", generated_profile, height=200)
+                    if st.button("Brug denne profil"):
+                        st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = generated_profile
+                        current_data["brand_profile"] = generated_profile
+                        save_state()
+                        st.success("Virksomhedsprofil opdateret med genereret tekst!")
+                except Exception as e:
+                    st.error(f"Fejl ved generering af virksomhedsprofil: {e}")
+        else:
+            st.warning("Indtast venligst en gyldig URL.")
+
+    # Redigér profiltekst manuelt
+    st.subheader("Redigér profil manuelt")
     profil_tekst = st.text_area("Redigér profil her:", current_data.get("brand_profile", ""), height=200)
     if st.button("Gem ændringer", key="save_profile"):
         st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = profil_tekst
@@ -228,7 +274,7 @@ if st.session_state["page"] == "seo":
                         seo_prompt += f" Undgå følgende ord eller sætninger: {current_data['blacklist']}."
                     
                     try:
-                        seo_response = client.chat.completions.create(
+                        seo_response = client.ChatCompletion.create(
                             model="gpt-4-turbo",
                             messages=[{"role": "user", "content": seo_prompt}],
                             max_tokens=laengde * 2
