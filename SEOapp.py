@@ -8,7 +8,8 @@ st.set_page_config(page_title="AI-assisteret SEO generator", layout="wide")
 
 if st.session_state.get("rerun_flag"):
     st.session_state["rerun_flag"] = False
-    st.experimental_rerun()
+    st.session_state["rerun_flag"] = True
+        st.stop()
 
 if "api_key" not in st.session_state:
     st.session_state["api_key"] = ""
