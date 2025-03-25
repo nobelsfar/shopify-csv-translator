@@ -77,7 +77,8 @@ if st.session_state["page"] == "profil":
         new_name = current_profile_name.strip()
 
         if new_name != old_name:
-            st.session_state["profiles"][new_name] = st.session_state["profiles"].pop(old_name)
+            old_data = st.session_state["profiles"].pop(old_name)
+            st.session_state["profiles"][new_name] = old_data
             st.session_state["current_profile"] = new_name
 
         st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = profil_tekst
