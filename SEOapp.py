@@ -64,7 +64,7 @@ if st.sidebar.button("Opret ny profil"):
     st.session_state["profiles"][new_profile_name] = {"brand_profile": "", "blacklist": "", "produkt_info": ""}
     st.session_state["current_profile"] = new_profile_name
     st.session_state["page"] = "profil"
-    st.stop()
+    st.experimental_rerun()
 
 
 
