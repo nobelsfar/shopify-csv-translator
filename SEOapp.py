@@ -79,7 +79,7 @@ def fetch_website_content(url):
 # Indlæs eller initialiser state ved app-start
 load_state()
 
-# API-nøgle input
+# Hvis vi ikke har en API-nøgle endnu, beder vi brugeren om at indtaste den
 if not st.session_state["api_key"]:
     api_input = st.text_input("Indtast OpenAI API-nøgle", type="password")
     if api_input:
@@ -88,8 +88,8 @@ if not st.session_state["api_key"]:
     else:
         st.stop()
 
-# Opret OpenAI-klient
-client = openai.OpenAI(api_key=st.session_state["api_key"])
+# Sæt API-nøglen til openai
+openai.api_key = st.session_state["api_key"]
 
 # Sidebar navigation
 st.sidebar.header("Navigation")
