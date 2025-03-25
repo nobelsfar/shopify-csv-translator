@@ -61,6 +61,7 @@ if st.session_state["page"] == "profil":
         if produkt_data.name.endswith(".csv"):
             df = pd.read_csv(produkt_data)
             extracted = df.to_string(index=False)
+            st.session_state['produkt_info'] = extracted
         elif produkt_data.name.endswith(".xlsx"):
             df = pd.read_excel(produkt_data)
             extracted = df.to_string(index=False)
@@ -68,6 +69,7 @@ if st.session_state["page"] == "profil":
             reader = PyPDF2.PdfReader(produkt_data)
             for page in reader.pages:
                 extracted += page.extract_text()
+            st.session_state['produkt_info'] = extracted
 
         st.text_area("Produktinformation:", extracted, height=200)
 
@@ -86,9 +88,10 @@ elif st.session_state["page"] == "seo":
 
         if generate:
             for i in range(antal):
+                produkt_info = st.session_state.get('produkt_info', '')
                 seo_prompt = (
                     f"Skriv en SEO-optimeret tekst på dansk om '{seo_keyword}'. "
-                    f"Brug følgende virksomhedsprofil som reference: {st.session_state['brand_profile']}. "
+                    f"Brug følgende virksomhedsprofil som reference: {st. Brug også følgende produktinformation: {produkt_info}.session_state['brand_profile']}. "
                     f"Strukturer teksten med SEO-venlige overskrifter (h1, h2, h3) og brug relevante nøgleord i overskrifterne. "
                     f"Teksten skal være cirka {laengde} ord lang."
                 )
