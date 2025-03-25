@@ -9,7 +9,6 @@ import io
 import json
 import requests
 from bs4 import BeautifulSoup
-import math
 
 # Vælg den korrekte sti til state-filen. På Streamlit Cloud bruges /mnt/data/state.json, ellers gemmes lokalt.
 if os.path.exists("/mnt/data") and os.access("/mnt/data", os.W_OK):
@@ -61,17 +60,14 @@ def initialize_state():
     save_state()
 
 def chunk_list(lst, size):
-    """
-    Returnerer en liste af mindre lister (batches) med længde 'size',
-    fx chunk_list([1,2,3,4,5,6,7], 3) -> [[1,2,3],[4,5,6],[7]]
-    """
+    """Returnerer bidder af listen 'lst' á 'size' elementer."""
     for i in range(0, len(lst), size):
         yield lst[i:i + size]
 
 def fetch_product_links(url):
     """
     Finder alle /products/ links på en kollektionsside, 
-    men undgår duplikerede links. Ex: https://noyer.dk/collections/all
+    men undgår duplikerede links.
     """
     links = []
     try:
@@ -82,6 +78,7 @@ def fetch_product_links(url):
             href = a_tag["href"]
             if href.startswith("/products/"):
                 full = "https://noyer.dk" + href
+                # UNDGÅ DUPLIKATER:
                 if full not in links:
                     links.append(full)
     except Exception as e:
@@ -106,24 +103,24 @@ def fetch_product_description(url):
         st.error(f"Fejl ved hentning af {url}: {e}")
         return ""
 
-def create_product_json_from_bigtext(big_text, offset_idx=0):
+def create_product_json_from_bigtext(big_text, chunk_number=1, offset_idx=0):
     """
     Sender en portion big_text til GPT og beder om et JSON-array 'produkter'
-    med nøjagtig så mange items, som vi har i denne bid.
-    'offset_idx' bruges hvis vi vil indikere at denne chunk fx er fra side 10-15.
+    med nøjagtigt så mange items, som vi har i denne bid.
+    
+    chunk_number blot for logging, offset_idx hvis vi vil referere i prompten.
     """
-    # Tæl, hvor mange === PRODUCT PAGE-linjer vi har
     count = big_text.count("=== PRODUCT PAGE")
     prompt = (
-        f"Her følger tekst fra {count} produktsider (Noyer). "
+        f"Her følger tekst fra {count} produktsider (Noyer), i chunk nr. {chunk_number}. "
         f"Returnér et JSON-array 'produkter' med nøjagtig {count} objekter – "
-        f"én for hver produktside i rækkefølge (offset {offset_idx}). "
+        f"én for hver produktside i rækkefølge. "
         "For hvert produkt:\n"
         " - 'navn': Produktets navn\n"
         " - 'beskrivelse': 4-5 sætninger uden at nævne pris\n"
-        " - 'materialer': hvis muligt, ellers 'Ukendt'.\n"
-        "Ignorér alt om 'Spring til indhold' og 'DKK kr'.\n\n"
-        "Ingen triple backticks, ingen disclaimers, kun valid JSON!\n\n"
+        " - 'materialer': hvis muligt, ellers 'Ukendt'\n"
+        "Ignorér alt om 'Spring til indhold' og 'DKK kr.'\n\n"
+        "Ingen triple backticks, disclaimers eller ekstra forklaring. KUN valid JSON-liste.\n\n"
         f"{big_text[:12000]}"
     )
     try:
@@ -133,17 +130,20 @@ def create_product_json_from_bigtext(big_text, offset_idx=0):
             max_tokens=2000
         )
         raw = response.choices[0].message.content.strip()
-        # Rens triple backticks og ordet 'json'
+        # Fjern triple backticks, "json"
         raw = raw.replace("```", "").replace("json", "")
         data = json.loads(raw)
+
+        # Hvis GPT returnerer et enkelt objekt i stedet for en liste:
+        if isinstance(data, dict):
+            # Lav det om til en-liste:
+            data = [data]
         return data
     except Exception as e:
         raise e
 
 def fetch_website_content(url):
-    """
-    Simpelt fetch af tekst (til profil) – uden linklogik
-    """
+    """Simpelt fetch af tekst (til profil) – uden linklogik."""
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
@@ -292,7 +292,6 @@ if st.session_state["page"] == "profil":
                     chunked_links = list(chunk_list(links, CHUNK_SIZE))
                     chunk_count = len(chunked_links)
 
-                    # For hver chunk henter vi text, laver big_text, kalder GPT
                     current_offset = 0
 
                     for c_idx, chunk in enumerate(chunked_links):
@@ -306,17 +305,20 @@ if st.session_state["page"] == "profil":
 
                             # Nu kalder vi GPT for denne chunk
                             try:
-                                chunk_json = create_product_json_from_bigtext(big_text, offset_idx=current_offset)
-                                # chunk_json er en liste af items, tilføj dem
+                                chunk_json = create_product_json_from_bigtext(
+                                    big_text,
+                                    chunk_number=(c_idx+1),
+                                    offset_idx=current_offset
+                                )
                                 if isinstance(chunk_json, list):
                                     all_products.extend(chunk_json)
                                 else:
                                     st.warning("GPT returnerede ikke en liste.")
                             except Exception as e:
                                 st.error(f"Fejl ved chunk {c_idx+1} GPT-kald: {e}")
+
                         current_offset += len(chunk)
 
-                    # Nu har vi all_products for hele kollektionen
                     product_str = json.dumps(all_products, ensure_ascii=False, indent=2)
                     st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = product_str
                     current_data["produkt_info"] = product_str
