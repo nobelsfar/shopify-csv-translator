@@ -66,10 +66,7 @@ if st.sidebar.button("Opret ny profil"):
     st.session_state["page"] = "profil"
     st.stop()
 
-if selected_profile != st.session_state["current_profile"]:
-    st.session_state["current_profile"] = selected_profile
-    st.session_state["rerun_flag"] = True
-    st.stop()
+
 
 current_data = st.session_state["profiles"].get(st.session_state["current_profile"], {"brand_profile": "", "blacklist": "", "produkt_info": ""})
 if "brand_profile" in st.session_state and current_data["brand_profile"].strip():
