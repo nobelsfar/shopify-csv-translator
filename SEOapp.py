@@ -28,6 +28,34 @@ if "brand_profile" in st.session_state:
 else:
     st.sidebar.info("Ingen virksomhedsprofil fundet endnu.")
 
+if st.sidebar.button("✏️ Redigér virksomhedsprofil"):
+    st.session_state["vis_redigeringsside"] = True
+
+if st.session_state.get("vis_redigeringsside"):
+    st.subheader("Rediger virksomhedsprofil")
+    profil_tekst = st.text_area("Redigér profil her:", st.session_state.get("brand_profile", ""), height=200)
+    if st.button("Gem ændringer"):
+        st.session_state["brand_profile"] = profil_tekst
+        st.success("Profil opdateret!")
+    st.markdown("---")
+    st.subheader("Upload eller indsæt produktdata")
+    produkt_data = st.file_uploader("Upload CSV, Excel eller PDF", type=["csv", "xlsx", "pdf"])
+    if produkt_data:
+        extracted = ""
+        if produkt_data.name.endswith(".csv"):
+            df = pd.read_csv(produkt_data)
+            extracted = df.to_string(index=False)
+        elif produkt_data.name.endswith(".xlsx"):
+            df = pd.read_excel(produkt_data)
+            extracted = df.to_string(index=False)
+        elif produkt_data.name.endswith(".pdf"):
+            reader = PyPDF2.PdfReader(produkt_data)
+            for page in reader.pages:
+                extracted += page.extract_text()
+
+        st.text_area("Produktinformation:", extracted, height=200)
+    st.stop()
+
 with st.sidebar.expander("⚙️ Generér eller upload profil"):
     profilmetode = st.radio("Vælg metode", ["Chat med AI", "Upload fil"])
 
@@ -55,71 +83,4 @@ with st.sidebar.expander("⚙️ Generér eller upload profil"):
                 messages=st.session_state["chat_history"],
                 max_tokens=500
             )
-            reply = response.choices[0].message.content.strip()
-            st.session_state["chat_history"].append({"role": "assistant", "content": reply})
-            with st.chat_message("assistant"):
-                st.markdown(reply)
-
-            if "brand_profile" not in st.session_state and len(st.session_state["chat_history"]) > 5:
-                st.session_state["brand_profile"] = reply
-                st.sidebar.success("Virksomhedsprofil genereret fra chat!")
-
-    elif profilmetode == "Upload fil":
-        uploaded_file = st.file_uploader("Upload CSV, Excel eller PDF", type=["csv", "xlsx", "pdf"])
-        extracted_text = ""
-
-        if uploaded_file:
-            if uploaded_file.name.endswith(".csv"):
-                df = pd.read_csv(uploaded_file)
-                extracted_text = df.to_string(index=False)
-            elif uploaded_file.name.endswith(".xlsx"):
-                df = pd.read_excel(uploaded_file)
-                extracted_text = df.to_string(index=False)
-            elif uploaded_file.name.endswith(".pdf"):
-                reader = PyPDF2.PdfReader(uploaded_file)
-                for page in reader.pages:
-                    extracted_text += page.extract_text()
-
-        if extracted_text:
-            st.text_area("Ekstraheret tekst (redigér hvis nødvendigt)", extracted_text, height=200, key="raw_info")
-
-            if st.button("Generér virksomhedsprofil ud fra uploadet tekst"):
-                prompt = (
-                    "Du er en brandingekspert. Brug følgende tekstuddrag til at generere en virksomhedsprofil. "
-                    "Inkludér brandets kerneværdier, målgruppe, produkttype og en tone-of-voice. "
-                    f"Her er teksten: {st.session_state['raw_info']}"
-                )
-                response = client.chat.completions.create(
-                    model="gpt-4-turbo",
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=500
-                )
-                st.session_state["brand_profile"] = response.choices[0].message.content.strip()
-                st.sidebar.success("Profil genereret!")
-
-# Hovedindhold – SEO tekstgenerator
-if "brand_profile" in st.session_state:
-    st.subheader("Generér SEO-tekst")
-    seo_keyword = st.text_input("SEO søgeord/emne for tekst")
-    laengde = st.number_input("Ønsket tekstlængde (ord)", min_value=100, max_value=1500, value=300)
-
-    if st.button("Generér SEO-tekst"):
-        seo_prompt = (
-            f"Skriv en SEO-optimeret tekst på dansk om '{seo_keyword}'. "
-            f"Brug følgende virksomhedsprofil som reference: {st.session_state['brand_profile']}. "
-            f"Teksten skal være cirka {laengde} ord lang."
-        )
-
-        seo_response = client.chat.completions.create(
-            model="gpt-4-turbo",
-            messages=[{"role": "user", "content": seo_prompt}],
-            max_tokens=laengde * 2
-        )
-
-        seo_text = seo_response.choices[0].message.content.strip()
-        st.text_area("Genereret SEO-tekst:", seo_text, height=400)
-
-        if st.download_button("Download tekst", seo_text, "seo_tekst.txt"):
-            st.success("Tekst downloadet!")
-else:
-    st.info("Start med at oprette en virksomhedsprofil i sidepanelet for at kunne generere SEO-tekster.")
+            rep
