@@ -77,15 +77,12 @@ st.sidebar.header("Navigation")
 if st.sidebar.button("Skriv SEO-tekst"):
     st.session_state["page"] = "seo"
     save_state()
-if st.sidebar.button("Redigér virksomhedsprofil"):
-    st.session_state["page"] = "profil"
-    save_state()
 
 st.sidebar.markdown("---")
 st.sidebar.header("Virksomhedsprofiler")
 
 profile_names = list(st.session_state["profiles"].keys())
-# Vis profiler med slet-knap
+# Vis profiler med slet-knap; klik på et profilnavn fører til redigering
 for name in profile_names:
     col1, col2 = st.sidebar.columns([4, 1])
     with col1:
@@ -94,7 +91,7 @@ for name in profile_names:
             st.session_state["page"] = "profil"
             save_state()
     with col2:
-        if st.button("🗑", key=f"delete_{name}"):
+        if st.sidebar.button("🗑", key=f"delete_{name}"):
             st.session_state["profiles"].pop(name)
             if st.session_state["current_profile"] == name:
                 st.session_state["current_profile"] = "Standard profil"
@@ -197,7 +194,6 @@ if st.session_state["page"] == "seo":
         if generate:
             with st.spinner("Genererer SEO-tekst..."):
                 for i in range(antal):
-                    # Opdateret prompt uden bogstavelige HTML-tags for overskrifter
                     seo_prompt = (
                         f"Skriv en SEO-optimeret tekst på dansk om '{seo_keyword}'. "
                         f"Brug følgende virksomhedsprofil som reference: {current_data.get('brand_profile', '')}. "
