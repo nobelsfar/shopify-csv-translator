@@ -30,8 +30,9 @@ if not st.session_state["api_key"]:
     if api_input:
         st.session_state["api_key"] = api_input
         st.session_state["rerun_flag"] = True
-    st.stop()
-    st.stop()
+        st.stop()
+    else:
+        st.stop()
 
 client = openai.OpenAI(api_key=st.session_state["api_key"])
 
