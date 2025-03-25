@@ -38,7 +38,6 @@ if not st.session_state["api_key"]:
     api_input = st.text_input("Indtast OpenAI API-nøgle", type="password")
     if api_input:
         st.session_state["api_key"] = api_input
-        st.experimental_rerun()
     else:
         st.stop()
 
@@ -49,10 +48,8 @@ client = openai.OpenAI(api_key=st.session_state["api_key"])
 st.sidebar.header("Navigation")
 if st.sidebar.button("Skriv SEO-tekst"):
     st.session_state["page"] = "seo"
-    st.experimental_rerun()
 if st.sidebar.button("Redigér virksomhedsprofil"):
     st.session_state["page"] = "profil"
-    st.experimental_rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.header("Virksomhedsprofiler")
@@ -65,24 +62,23 @@ for name in profile_names:
         if st.button(name, key=f"profile_btn_{name}"):
             st.session_state["current_profile"] = name
             st.session_state["page"] = "profil"
-            st.experimental_rerun()
     with col2:
         if st.button("🗑", key=f"delete_{name}"):
             st.session_state["profiles"].pop(name)
             if st.session_state["current_profile"] == name:
                 st.session_state["current_profile"] = "Standard profil"
             save_profiles_to_file()
-            st.experimental_rerun()
-
 if st.sidebar.button("Opret ny profil"):
     new_profile_name = f"Ny profil {len(profile_names) + 1}"
     st.session_state["profiles"][new_profile_name] = {"brand_profile": "", "blacklist": "", "produkt_info": ""}
     st.session_state["current_profile"] = new_profile_name
     st.session_state["page"] = "profil"
     save_profiles_to_file()
-    st.experimental_rerun()
 
-current_data = st.session_state["profiles"].get(st.session_state["current_profile"], {"brand_profile": "", "blacklist": "", "produkt_info": ""})
+current_data = st.session_state["profiles"].get(
+    st.session_state["current_profile"],
+    {"brand_profile": "", "blacklist": "", "produkt_info": ""}
+)
 if current_data.get("brand_profile", "").strip():
     st.sidebar.markdown(current_data["brand_profile"])
 else:
@@ -91,7 +87,9 @@ else:
 # Side til redigering af virksomhedsprofil
 if st.session_state["page"] == "profil":
     st.header("Redigér virksomhedsprofil")
-    current_profile_name = st.text_input("Navn på virksomhedsprofil:", value=st.session_state["current_profile"], key="profile_name_display")
+    current_profile_name = st.text_input("Navn på virksomhedsprofil:",
+                                           value=st.session_state["current_profile"],
+                                           key="profile_name_display")
     
     # Opdater profilnavn, hvis det ændres
     if current_profile_name != st.session_state["current_profile"]:
@@ -127,11 +125,15 @@ if st.session_state["page"] == "seo":
     # Inputfelter for SEO-parametre
     seo_keyword = st.text_input("Søgeord / Emne", value="")
     laengde = st.number_input("Ønsket tekstlængde (antal ord)", min_value=50, max_value=2000, value=300, step=50)
-    tone = st.selectbox("Vælg tone-of-voice", options=["Neutral", "Formel", "Venlig", "Entusiastisk"], index=0)
+    tone = st.selectbox("Vælg tone-of-voice",
+                        options=["Neutral", "Formel", "Venlig", "Entusiastisk"],
+                        index=0)
     
     st.markdown("---")
     st.subheader("Upload eller indsæt produktdata")
-    produkt_data = st.file_uploader("Upload CSV, Excel eller PDF", type=["csv", "xlsx", "pdf"], key=f"produkt_upload_{st.session_state['current_profile']}")
+    produkt_data = st.file_uploader("Upload CSV, Excel eller PDF",
+                                    type=["csv", "xlsx", "pdf"],
+                                    key=f"produkt_upload_{st.session_state['current_profile']}")
     
     if produkt_data:
         st.write(f"🔄 Fil uploadet: {produkt_data.name}")
@@ -154,7 +156,7 @@ if st.session_state["page"] == "seo":
     else:
         st.info("Upload produktdata for at generere SEO-tekster.")
     
-    # Vis genereringsmuligheder kun hvis både produktdata og søgeord er til stede
+    # Vis genereringsmuligheder, hvis både produktdata og søgeord er til stede
     if produkt_data and seo_keyword:
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -193,7 +195,8 @@ if st.session_state["page"] == "seo":
                 for idx, txt in enumerate(st.session_state["generated_texts"]):
                     with st.expander(f"SEO-tekst {idx+1}"):
                         st.markdown(txt, unsafe_allow_html=True)
-                        st.download_button(f"Download tekst {idx+1}", txt, file_name=f"seo_tekst_{idx+1}.txt")
+                        st.download_button(f"Download tekst {idx+1}",
+                                           txt,
+                                           file_name=f"seo_tekst_{idx+1}.txt")
                         if st.button(f"❌ Slet tekst {idx+1}", key=f"delete_{idx}"):
                             st.session_state["generated_texts"].pop(idx)
-                            st.experimental_rerun()
