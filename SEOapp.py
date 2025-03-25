@@ -101,29 +101,18 @@ def fetch_product_description(url):
         st.error(f"Fejl ved hentning af {url}: {e}")
         return ""
 
-def gather_all_product_texts(collection_url):
+def create_product_json_from_bigtext(big_text, count):
     """
-    1) Hent link til hver produktside
-    2) Hent beskrivelse på hver produktside
-    3) Saml det i en stor streng, så GPT kan se hver side
-    """
-    links = fetch_product_links(collection_url)
-    big_text = ""
-    for link in links:
-        # Indsæt separator pr. produkt
-        desc = fetch_product_description(link)
-        big_text += f"\n\n=== PRODUCT PAGE: {link} ===\n{desc}"
-    return big_text
-
-def create_product_json_from_bigtext(big_text):
-    """
-    Sender big_text til GPT og beder om et JSON-array 'produkter'.
+    Sender big_text til GPT og beder om et JSON-array 'produkter'
+    med nøjagtig `count` objekter (ét for hver side).
     """
     prompt = (
-        "Her følger tekst fra flere produktsider (Noyer). Returnér KUN et JSON-array 'produkter'. "
+        f"Her følger tekst fra {count} produktsider (Noyer). "
+        f"Returnér et JSON-array 'produkter' med nøjagtig {count} objekter – "
+        f"én for hver produktside i rækkefølge. "
         "For hvert produkt skal du udfylde:\n"
         " - 'navn': Produktets navn\n"
-        " - 'beskrivelse': 4-5 sætninger uden at nævne pris.\n"
+        " - 'beskrivelse': 4-5 sætninger uden at nævne pris\n"
         " - 'materialer': hvis muligt, ellers 'Ukendt'.\n\n"
         "Ingen triple backticks, ingen disclaimers, kun valid JSON!\n\n"
         f"{big_text[:12000]}"
@@ -278,27 +267,32 @@ if st.session_state["page"] == "profil":
     url_collection = st.text_input("URL til f.eks. https://noyer.dk/collections/all")
     if st.button("Hent og generer produkter"):
         if url_collection.strip():
-            with st.spinner("Henter links til alle produkter..."):
+            with st.spinner("1) Henter links til alle produkter..."):
                 links = fetch_product_links(url_collection.strip())
                 st.write(f"Antal fundne produktlinks: {len(links)}")
                 if len(links) == 0:
-                    st.warning("Fandt ingen /products/-links. Måske forkert URL eller JavaScript-problem.")
+                    st.warning("Fandt ingen /products/-links. Mangler JavaScript? Forkert URL? Fel CSS?")
                 else:
-                    st.write(links)  # midlertidig debug-liste
-                    with st.spinner("Henter beskrivelser fra hver produktside..."):
-                        big_text = ""
+                    st.write("Fundne links:", links[:10], "...")
+                    big_text = ""
+                    with st.spinner("2) Henter beskrivelser fra hver produktside..."):
+                        idx_num = 0
                         for lnk in links:
                             desc = fetch_product_description(lnk)
-                            big_text += f"\n\n=== PRODUCT PAGE: {lnk} ===\n{desc}"
+                            idx_num += 1
+                            # UDskriv top 200 tegn pr. side i appen, for at se om alt er tomt
+                            st.markdown(f"**Produkt {idx_num}:** {lnk}")
+                            st.text_area(f"Ekstrakt:", desc[:200], height=80)
+                            big_text += f"\n\n=== PRODUCT PAGE {idx_num}: {lnk} ===\n{desc}"
 
-                    with st.spinner("Sender samlet tekst til GPT for at få JSON-liste..."):
+                    with st.spinner("3) Sender samlet tekst til GPT for at få nøjagtig {len(links)} JSON-objekter..."):
                         try:
-                            products_data = create_product_json_from_bigtext(big_text)
+                            products_data = create_product_json_from_bigtext(big_text, len(links))
                             product_str = json.dumps(products_data, ensure_ascii=False, indent=2)
                             st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = product_str
                             current_data["produkt_info"] = product_str
                             save_state()
-                            st.success("Gemte produktlisten i 'produkt_info'!")
+                            st.success(f"Gemte produktlisten i 'produkt_info' - forventet {len(links)} items!")
                             st.text_area("Produkter (JSON fra AI)", product_str, height=250)
                         except Exception as e:
                             st.error(f"Fejl ved generering af produktliste: {e}")
