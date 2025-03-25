@@ -93,7 +93,7 @@ if st.session_state["page"] == "profil":
     st.header("Redigér virksomhedsprofil")
     current_profile_name = st.text_input("Navn på virksomhedsprofil:", value=st.session_state["current_profile"], key="profile_name_display")
     
-    # Opdater profilnavn
+    # Opdater profilnavn, hvis det ændres
     if current_profile_name != st.session_state["current_profile"]:
         old_name = st.session_state["current_profile"]
         if current_profile_name.strip():
@@ -154,7 +154,7 @@ if st.session_state["page"] == "seo":
     else:
         st.info("Upload produktdata for at generere SEO-tekster.")
     
-    # Kun vis generering, hvis der er både produktdata og et søgeord
+    # Vis genereringsmuligheder kun hvis både produktdata og søgeord er til stede
     if produkt_data and seo_keyword:
         col1, col2 = st.columns([3, 1])
         with col1:
