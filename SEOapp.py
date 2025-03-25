@@ -168,7 +168,7 @@ if st.session_state["page"] == "profil":
 
     # 1) Automatiske generering KUN af virksomhedsprofil
     st.subheader("Automatisk udfyld profil (Uden produktsøgning)")
-    website_url = st.text_input("Indtast URL til en side med virksomheds-info (f.eks. 'Om os').")
+    website_url = st.text_input("URL til en side med virksomhedens generelle info (f.eks. 'Om os')")
     if st.button("Hent og generer profil"):
         if website_url:
             text = fetch_website_content(website_url)
@@ -199,7 +199,7 @@ if st.session_state["page"] == "profil":
 
     # 2) AUTOMATISK GENERERING AF PRODUKTER
     st.subheader("Automatisk udfyld PRODUKTER (lægger data i produkt_info)")
-    product_url = st.text_input("Indtast URL til en side, hvor produkterne er listet.")
+    product_url = st.text_input("URL til en side, hvor produkterne er listet (med detaljer).")
     if st.button("Hent og generer produkter"):
         if product_url:
             text = fetch_website_content(product_url)
