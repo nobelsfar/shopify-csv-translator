@@ -51,13 +51,21 @@ st.sidebar.markdown("---")
 st.sidebar.header("Virksomhedsprofiler")
 
 profile_names = list(st.session_state["profiles"].keys())
-# Vis profiler som knapper i stedet for dropdown
+# Vis profiler som knapper med slet-funktion
 for name in profile_names:
-    if st.sidebar.button(name):
-        st.session_state["current_profile"] = name
-        st.session_state["page"] = "profil"
-        st.session_state["rerun_flag"] = True
-        st.stop()
+    col1, col2 = st.sidebar.columns([4, 1])
+    with col1:
+        if st.button(name, key=f"profile_btn_{name}"):
+            st.session_state["current_profile"] = name
+            st.session_state["page"] = "profil"
+            st.session_state["rerun_flag"] = True
+            st.stop()
+    with col2:
+        if st.button("🗑", key=f"delete_{name}"):
+            st.session_state["profiles"].pop(name)
+            if st.session_state["current_profile"] == name:
+                st.session_state["current_profile"] = "Standard profil"
+            st.experimental_rerun()
 
 if st.sidebar.button("Opret ny profil"):
     new_profile_name = f"Ny profil {len(profile_names) + 1}"
