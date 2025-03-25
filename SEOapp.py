@@ -76,6 +76,14 @@ else:
 
 if st.session_state["page"] == "profil":
     current_profile_name = st.text_input("Navn på virksomhedsprofil:", value=st.session_state["current_profile"], key="profile_name_display")
+
+    # Opdater navnet live
+    if current_profile_name != st.session_state["current_profile"]:
+        old_name = st.session_state["current_profile"]
+        if current_profile_name.strip():
+            st.session_state["profiles"][current_profile_name] = st.session_state["profiles"].pop(old_name)
+            st.session_state["current_profile"] = current_profile_name
+            current_data = st.session_state["profiles"][current_profile_name]
     st.subheader("Rediger virksomhedsprofil")
     profil_tekst = st.text_area("Redigér profil her:", current_data.get("brand_profile", ""), height=200)
     if st.button("Gem ændringer"):
