@@ -154,8 +154,8 @@ if st.session_state["page"] == "profil":
     
     # Vælg profilnavn
     current_profile_name = st.text_input("Navn på virksomhedsprofil:",
-                                           value=st.session_state["current_profile"],
-                                           key="profile_name_display")
+                                         value=st.session_state["current_profile"],
+                                         key="profile_name_display")
     if current_profile_name != st.session_state["current_profile"]:
         old_name = st.session_state["current_profile"]
         if current_profile_name.strip():
@@ -164,30 +164,59 @@ if st.session_state["page"] == "profil":
             current_data = st.session_state["profiles"][current_profile_name]
             save_state()
     
-    # Ny sektion: Automatisk udfyld profil med hjemmesideinformation
-    st.subheader("Automatisk udfyld profil")
+    # Automatisk udfyld profil og produkter i samme kald
+    st.subheader("Automatisk udfyld profil (inkl. produkter)")
     website_url = st.text_input("Indtast URL til din hjemmeside for automatisk profilgenerering:")
     if st.button("Hent og generer profil"):
         if website_url:
             website_text = fetch_website_content(website_url)
             if website_text:
+                # Vi beder AI'en om at returnere JSON med to felter: virksomhedsprofil og produkter
                 prompt = (
-                    "Giv en detaljeret virksomhedsprofil, der beskriver virksomhedens produkter, historie og kerneværdier "
-                    "baseret på følgende hjemmesideindhold:\n\n" + website_text
+                    "Læs hjemmesideteksten herunder og returnér et JSON-objekt med to nøgler: "
+                    "'virksomhedsprofil' og 'produkter'.\n\n"
+                    "1) 'virksomhedsprofil': Beskriv virksomhedens historie, kerneværdier og generel profil.\n"
+                    "2) 'produkter': En liste (array) med navn og kort beskrivelse af virksomhedens produkter.\n\n"
+                    "Returnér resultatet som *ren* JSON uden ekstra forklaringer:\n\n"
+                    f"{website_text[:4000]}"
                 )
                 try:
                     response = openai.ChatCompletion.create(
                         model="gpt-4-turbo",
                         messages=[{"role": "user", "content": prompt}],
-                        max_tokens=500
+                        max_tokens=700
                     )
-                    generated_profile = response.choices[0].message.content.strip()
-                    st.text_area("Genereret virksomhedsprofil", generated_profile, height=200)
-                    if st.button("Brug denne profil"):
-                        st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = generated_profile
-                        current_data["brand_profile"] = generated_profile
+                    raw_text = response.choices[0].message.content.strip()
+                    
+                    # Forsøg at parse JSON
+                    try:
+                        parsed = json.loads(raw_text)
+                        # Gem 'virksomhedsprofil' i brand_profile
+                        brand_profile = parsed.get("virksomhedsprofil", "")
+                        # Gem 'produkter' i produkt_info (som string eller JSON)
+                        product_data = parsed.get("produkter", [])
+                        
+                        # Hvis 'produkter' er en liste, konverter til string
+                        if isinstance(product_data, list):
+                            product_data_str = "\n".join([f"- {p}" for p in product_data])
+                        else:
+                            # Hvis det er en streng eller andet, brug det direkte
+                            product_data_str = str(product_data)
+                        
+                        st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = brand_profile
+                        st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = product_data_str
+                        current_data["brand_profile"] = brand_profile
+                        current_data["produkt_info"] = product_data_str
+                        
                         save_state()
-                        st.success("Virksomhedsprofil opdateret med genereret tekst!")
+                        
+                        st.success("Virksomhedsprofil og produklist gemt i profilen!")
+                        st.text_area("Virksomhedsprofil (fra AI)", brand_profile, height=150)
+                        st.text_area("Produkter (fra AI)", product_data_str, height=150)
+                    
+                    except Exception as json_err:
+                        st.error("Kunne ikke parse JSON-svaret. Her er hele AI-svaret:")
+                        st.text_area("AI-svar", raw_text, height=300)
                 except Exception as e:
                     st.error(f"Fejl ved generering af virksomhedsprofil: {e}")
         else:
