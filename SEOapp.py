@@ -1,5 +1,8 @@
 import streamlit as st
 import openai
+import pandas as pd
+import PyPDF2
+import io
 
 st.set_page_config(page_title="AI-assisteret SEO generator", layout="wide")
 
@@ -18,30 +21,44 @@ if not st.session_state["api_key"]:
 
 client = openai.OpenAI(api_key=st.session_state["api_key"])
 
-# Initial opsætning af brand-profil
-if "brand_profile" not in st.session_state:
-    st.header("Opsætning af din virksomhedsprofil")
+# Upload materiale
+st.header("Upload virksomheds- eller produktinformation")
+uploaded_file = st.file_uploader("Upload en CSV-, Excel- eller PDF-fil med information om din virksomhed eller produkter", type=["csv", "xlsx", "pdf"])
+extracted_text = ""
 
-    dna = st.text_area("Kort beskrivelse af din virksomheds DNA og målgruppe")
-    produkter = st.text_area("Hvilke typer produkter sælger du?")
-    tone = st.selectbox("Foretrukken tone-of-voice", ["Professionel", "Informativ", "Inspirerende", "Humoristisk", "Salg"])
+if uploaded_file:
+    if uploaded_file.name.endswith(".csv"):
+        df = pd.read_csv(uploaded_file)
+        extracted_text = df.to_string(index=False)
+    elif uploaded_file.name.endswith(".xlsx"):
+        df = pd.read_excel(uploaded_file)
+        extracted_text = df.to_string(index=False)
+    elif uploaded_file.name.endswith(".pdf"):
+        reader = PyPDF2.PdfReader(uploaded_file)
+        for page in reader.pages:
+            extracted_text += page.extract_text()
 
-    if st.button("Generér virksomhedsprofil"):
+if extracted_text:
+    st.subheader("Uddraget tekst fra dit materiale")
+    st.text_area("Ekstraheret tekst (redigér hvis nødvendigt)", extracted_text, height=200, key="raw_info")
+
+    if st.button("Analyser og generér virksomhedsprofil med AI"):
         prompt = (
-            f"Udarbejd en kort, klar profiltekst for en virksomhed med følgende DNA: '{dna}', "
-            f"som sælger '{produkter}' med en '{tone}' tone-of-voice."
+            "Du er en brandingekspert. Brug følgende tekstuddrag til at generere en virksomhedsprofil. "
+            "Inkludér brandets kerneværdier, målgruppe, produkttype og en tone-of-voice. "
+            f"Her er teksten: {st.session_state['raw_info']}"
         )
         response = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=300
+            max_tokens=500
         )
         st.session_state["brand_profile"] = response.choices[0].message.content.strip()
-        st.success("Profil genereret! Du kan rette nedenfor.")
-        st.experimental_rerun()
+        st.success("Profil genereret! Du kan rette den nedenfor.")
 
-else:
-    st.subheader("Virksomhedens gemte profil (klik for at ændre)")
+# Redigering og SEO-tekstgenerering
+if "brand_profile" in st.session_state:
+    st.subheader("Virksomhedens profil")
     edited_profile = st.text_area("Virksomhedsprofil:", st.session_state["brand_profile"], height=200)
 
     if st.button("Opdater profil"):
@@ -50,7 +67,6 @@ else:
 
     st.markdown("---")
 
-    # SEO-tekstgenerering med profil
     seo_keyword = st.text_input("SEO søgeord/emne for tekst")
     laengde = st.number_input("Ønsket tekstlængde (ord)", min_value=100, max_value=1500, value=300)
 
