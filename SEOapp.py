@@ -17,6 +17,7 @@ else:
     STATE_FILE = "state.json"
 
 def load_state():
+    """Loader session_state fra STATE_FILE, hvis den findes."""
     if os.path.exists(STATE_FILE):
         try:
             with open(STATE_FILE, "r") as f:
@@ -30,6 +31,7 @@ def load_state():
         initialize_state()
 
 def save_state():
+    """Gemmer session_state til STATE_FILE."""
     folder = os.path.dirname(STATE_FILE)
     if folder and not os.path.exists(folder):
         try:
@@ -51,6 +53,7 @@ def save_state():
         st.error(f"Fejl ved gemning af state: {e}")
 
 def initialize_state():
+    """Initialiserer session_state med standardværdier."""
     st.session_state["profiles"] = {}
     st.session_state["api_key"] = ""
     st.session_state["page"] = "seo"
@@ -61,8 +64,8 @@ def initialize_state():
 
 def fetch_website_content(url):
     """
-    Henter rå tekstindhold fra en URL og fjerner script/style.
-    Bruges til at lave AI-sammenfatning (profil).
+    Henter rå tekst fra en URL og fjerner script/style.
+    Bruges til AI-generering af brandprofil.
     """
     try:
         r = requests.get(url, timeout=10)
@@ -79,7 +82,7 @@ def fetch_website_content(url):
 def fetch_product_links(url):
     """
     Finder alle /products/ links på en kollektionsside, 
-    men undgår duplikerede links. Ex: https://noyer.dk/collections/all
+    men undgår duplikerede links.
     """
     links = []
     try:
@@ -90,7 +93,6 @@ def fetch_product_links(url):
             href = a_tag["href"]
             if href.startswith("/products/"):
                 full = "https://noyer.dk" + href
-                # Undgå duplikater
                 if full not in links:
                     links.append(full)
     except Exception as e:
@@ -100,7 +102,7 @@ def fetch_product_links(url):
 def fetch_product_text_raw(url):
     """
     Henter en produktside og tager enten .product-info__description
-    eller hele siden som fallback. Returnerer rå tekst (ingen AI).
+    eller hele siden som fallback. Returnerer rå tekst.
     """
     try:
         r = requests.get(url, timeout=10)
@@ -118,7 +120,6 @@ def fetch_product_text_raw(url):
 # -- Indlæs / initialiser state
 load_state()
 
-# Hvis vi ingen API-nøgle har, beder vi brugeren om at indtaste den
 if not st.session_state.get("api_key"):
     user_key = st.text_input("Indtast OpenAI API-nøgle", type="password")
     if user_key:
@@ -179,7 +180,6 @@ if st.sidebar.button("Opret ny profil"):
     st.session_state["page"] = "profil"
     save_state()
 
-# Hent data for den nuværende profil
 current_data = st.session_state["profiles"].get(
     st.session_state["current_profile"],
     {"brand_profile": "", "blacklist": "", "produkt_info": ""}
@@ -204,48 +204,49 @@ if st.session_state["page"] == "profil":
             current_data = st.session_state["profiles"][current_profile_name]
             save_state()
 
-    # -- AI-baseret generering af brand-profil (den "fantastiske" metode)
-    st.subheader("AI-genereret virksomhedsprofil")
-    url_profile = st.text_input("URL til f.eks. 'Om os' side")
+    # -- AI-baseret generering af brand-profil, UDEN "bæredygtighed"
+    st.subheader("AI-genereret virksomhedsprofil (uden 'bæredygtighed')")
+    url_profile = st.text_input("URL til fx 'Om os' side")
     if st.button("Hent og lav brandprofil med AI"):
         if url_profile:
-            raw_text = fetch_website_content(url_profile)
-            if raw_text:
-                # Kald GPT for at opsummere i en pæn brand-profil
+            raw_txt = fetch_website_content(url_profile)
+            if raw_txt:
                 prompt = (
                     "Læs hjemmesideteksten herunder og skriv en fyldig virksomhedsprofil. "
-                    "Inkluder historie, kerneværdier og vigtigste fokusområder. Returnér KUN profilteksten.\n\n"
-                    f"{raw_text[:7000]}"
+                    "Inkluder historie, kerneværdier og vigtigste fokusområder. "
+                    "Du må IKKE nævne ord som 'bæredygtighed' eller 'bæredygtig'. "
+                    "Returnér KUN profilteksten.\n\n"
+                    f"{raw_txt[:7000]}"
                 )
                 try:
-                    response = openai.ChatCompletion.create(
+                    resp = openai.ChatCompletion.create(
                         model="gpt-4-turbo",
                         messages=[{"role": "user", "content": prompt}],
                         max_tokens=1000
                     )
-                    profile_text = response.choices[0].message.content.strip()
+                    brand = resp.choices[0].message.content.strip()
 
-                    st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = profile_text
-                    current_data["brand_profile"] = profile_text
+                    st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = brand
+                    current_data["brand_profile"] = brand
                     save_state()
 
-                    st.success("Virksomhedsprofil opdateret!")
-                    st.text_area("Genereret profil:", profile_text, height=200)
+                    st.success("Virksomhedsprofil opdateret (uden bæredygtighed)!")
+                    st.text_area("Genereret profil", brand, height=200)
                 except Exception as e:
-                    st.error(f"Fejl ved AI-generering: {e}")
+                    st.error(f"Fejl ved AI: {e}")
             else:
-                st.warning("Tom eller ugyldig tekst fundet på URL.")
+                st.warning("Tom tekst fundet på URL.")
         else:
-            st.warning("Indtast venligst en URL til brand-profil.")
+            st.warning("Indtast en URL.")
 
     # -- Rå produkttekster
-    st.subheader("Hent rå produkttekster (ingen AI)")
-    col_url = st.text_input("URL til kollektion, fx https://noyer.dk/collections/all")
+    st.subheader("Hent rå produkttekster (uden AI)")
+    col_url = st.text_input("URL til en kollektion, f.eks. https://noyer.dk/collections/all")
     if st.button("Hent produktlinks"):
         if col_url.strip():
-            product_links = fetch_product_links(col_url.strip())
-            st.session_state["collected_links"] = product_links
-            st.write(f"Fandt {len(product_links)} unikke links.")
+            found_links = fetch_product_links(col_url.strip())
+            st.session_state["collected_links"] = found_links
+            st.write(f"Fandt {len(found_links)} unikke links.")
         else:
             st.warning("Angiv URL.")
 
@@ -267,12 +268,11 @@ if st.session_state["page"] == "profil":
             save_state()
 
             st.success("Rå tekst er gemt i produkt_info.")
-            st.text_area("Viser rå tekst:", big_raw, height=300)
+            st.text_area("Rå tekst", big_raw, height=300)
 
     # Manuelle felter
     st.subheader("Redigér profil manuelt")
-    brand_txt = st.text_area("Virksomhedsprofil (AI-resultat eller manuelt):",
-                             current_data.get("brand_profile", ""), height=150)
+    brand_txt = st.text_area("Virksomhedsprofil:", current_data.get("brand_profile", ""), height=150)
     if st.button("Gem ændringer i profil"):
         st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = brand_txt
         current_data["brand_profile"] = brand_txt
@@ -280,8 +280,7 @@ if st.session_state["page"] == "profil":
         st.success("Profil opdateret manuelt.")
 
     st.subheader("Redigér produktinfo (rå tekst)")
-    prod_txt = st.text_area("Gemte produktinfo (rå):",
-                            current_data.get("produkt_info", ""), height=150)
+    prod_txt = st.text_area("Produktinfo (rå):", current_data.get("produkt_info", ""), height=150)
     if st.button("Gem ændringer i produktinfo"):
         st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = prod_txt
         current_data["produkt_info"] = prod_txt
@@ -289,88 +288,99 @@ if st.session_state["page"] == "profil":
         st.success("Produktinfo opdateret manuelt.")
 
     st.subheader("Ord/sætninger AI ikke må bruge (Blacklist)")
-    bl = st.text_area("Bliver brugt ved SEO generering, ikke ved rå hentning:", current_data.get("blacklist", ""))
+    bl = st.text_area("Bruges ved SEO-generering, ikke ved rå hentning", current_data.get("blacklist", ""), height=80)
     if st.button("Gem blacklist"):
         st.session_state["profiles"][st.session_state["current_profile"]]["blacklist"] = bl
         current_data["blacklist"] = bl
         save_state()
         st.success("Blacklist gemt.")
 
-    # Fil-upload
+    # Upload filer
     st.markdown("---")
     st.subheader("Upload filer med produktdata (CSV, XLSX, PDF)")
-    up_file = st.file_uploader("Upload", type=["csv", "xlsx", "pdf"])
+    up_file = st.file_uploader("Upload", type=["csv","xlsx","pdf"])
     if up_file:
         st.write(f"🔄 Fil uploadet: {up_file.name}")
-        ext_text = ""
+        ext = ""
         if up_file.name.endswith(".csv"):
             df = pd.read_csv(up_file)
-            ext_text = df.to_string(index=False)
+            ext = df.to_string(index=False)
         elif up_file.name.endswith(".xlsx"):
             df = pd.read_excel(up_file)
-            ext_text = df.to_string(index=False)
+            ext = df.to_string(index=False)
         elif up_file.name.endswith(".pdf"):
-            reader = PyPDF2.PdfReader(up_file)
+            from PyPDF2 import PdfReader
+            reader = PdfReader(up_file)
             for page in reader.pages:
-                ext_text += page.extract_text()
-        st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = ext_text
-        current_data["produkt_info"] = ext_text
+                ext += page.extract_text()
+        st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = ext
+        current_data["produkt_info"] = ext
         save_state()
-        st.success("Produktinformation gemt fra fil!")
+        st.success("Produktdata gemt fra fil!")
 
-# == SEO-side
+# -- SEO-side
 elif st.session_state["page"] == "seo":
     st.header("Generér SEO-tekst")
 
-    current_data = st.session_state["profiles"].get(
+    data = st.session_state["profiles"].get(
         st.session_state["current_profile"],
         {"brand_profile": "", "blacklist": "", "produkt_info": ""}
     )
-
     st.subheader("Virksomhedsprofil")
-    st.markdown(current_data.get("brand_profile", "Ingen profiltekst fundet."))
+    st.markdown(data.get("brand_profile", "Ingen profiltekst."))
 
-    # Evt. AI-basering til SEO
-    seo_keyword = st.text_input("Søgeord / Emne", value="")
-    laengde = st.number_input("Ønsket tekstlængde (antal ord)", min_value=50, max_value=2000, value=300, step=50)
-    tone = st.selectbox("Vælg tone-of-voice", ["Neutral", "Formel", "Venlig", "Entusiastisk"], index=0)
-    antal = st.selectbox("Antal tekster", list(range(1, 11)), 0)
+    seo_keyword = st.text_input("Søgeord / emne")
+    laengde = st.number_input("Antal ord (længde)", min_value=50, max_value=2000, value=300, step=50)
+    tone = st.selectbox("Tone-of-voice", ["Neutral","Formel","Venlig","Entusiastisk"], index=0)
+    antal = st.selectbox("Antal tekster", list(range(1,11)), 0)
 
     if seo_keyword:
-        generate = st.button("Generér SEO-tekst")
-        if generate:
+        if st.button("Generér SEO-tekst"):
             with st.spinner("Genererer SEO-tekst..."):
                 for i in range(antal):
+                    # Hardcode constraints:
+                    # 1) Ingen "bæredygtighed"
+                    # 2) Normal dansk overskrift (ikke Title Case)
+                    # 3) Inkluder brand_profil + produkt_info
+                    # 4) Overhold blacklist
                     prompt = (
                         f"Skriv en SEO-optimeret tekst på dansk om '{seo_keyword}'. "
-                        f"Brug følgende virksomhedsprofil som reference: {current_data.get('brand_profile','')}. "
-                        f"Brug også denne rå produktinfo: {current_data.get('produkt_info','')}. "
-                        f"Inkluder en meta-titel, en meta-beskrivelse, nøgleord i overskrifterne og interne links. "
+                        "Skriv overskrifter på normal dansk (ikke Title Case). "
+                        "Du må ikke nævne 'bæredygtighed' eller 'bæredygtig'. "
+                        f"Brug følgende virksomhedsprofil: {data.get('brand_profile','')}. "
+                        f"Brug også følgende rå produktinfo: {data.get('produkt_info','')}. "
+                        f"Inkluder en meta-titel, meta-beskrivelse og relevante nøgleord i overskrifter. "
                         f"Teksten skal være ca. {laengde} ord."
                     )
                     if tone:
                         prompt += f" Teksten skal have en '{tone}' tone-of-voice."
-                    if current_data.get("blacklist", "").strip():
-                        prompt += f" Undgå følgende ord: {current_data['blacklist']}."
+                    if data.get("blacklist","").strip():
+                        prompt += f" Undgå desuden disse ord: {data['blacklist']}."
 
                     try:
                         resp = openai.ChatCompletion.create(
                             model="gpt-4-turbo",
-                            messages=[{"role": "user", "content": prompt}],
-                            max_tokens=laengde * 2
+                            messages=[{"role":"user","content":prompt}],
+                            max_tokens=laengde*2
                         )
                         seo_text = resp.choices[0].message.content.strip()
                         st.session_state["generated_texts"].append(seo_text)
                     except Exception as e:
-                        st.error(f"Fejl ved generering: {e}")
+                        st.error(f"Fejl: {e}")
             save_state()
 
             if st.session_state["generated_texts"]:
-                st.subheader("Dine SEO-tekster:")
+                st.subheader("Dine SEO-tekster")
                 for idx, txt in enumerate(st.session_state["generated_texts"]):
                     with st.expander(f"SEO-tekst {idx+1}"):
                         st.markdown(txt, unsafe_allow_html=True)
-                        st.download_button(f"Download tekst {idx+1}", txt, file_name=f"seo_tekst_{idx+1}.txt")
+                        # Download as HTML
+                        st.download_button(
+                            label=f"Download SEO-tekst {idx+1} som HTML",
+                            data=txt,
+                            file_name=f"seo_text_{idx+1}.html",
+                            mime="text/html"
+                        )
                         if st.button(f"Slet tekst {idx+1}", key=f"del_{idx}"):
                             st.session_state["generated_texts"].pop(idx)
                             save_state()
