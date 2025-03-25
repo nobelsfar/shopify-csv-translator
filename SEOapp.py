@@ -95,8 +95,6 @@ elif st.session_state["page"] == "seo":
                     f"Brug også følgende produktinformation: {produkt_info}. "
                     f"Strukturer teksten med SEO-venlige overskrifter (h1, h2, h3) og brug relevante nøgleord i overskrifterne. "
                     f"Teksten skal være cirka {laengde} ord lang."
-                ) og brug relevante nøgleord i overskrifterne. "
-                    f"Teksten skal være cirka {laengde} ord lang."
                 )
 
                 if tone:
