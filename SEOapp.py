@@ -21,7 +21,6 @@ def load_state():
         try:
             with open(STATE_FILE, "r") as f:
                 state = json.load(f)
-            # Indlæs de gemte værdier i st.session_state
             for key, value in state.items():
                 st.session_state[key] = value
         except Exception as e:
@@ -60,25 +59,23 @@ def initialize_state():
     st.session_state["delete_profile"] = None
     save_state()
 
-# Funktion til at hente og udtrække tekst fra en hjemmeside
 def fetch_website_content(url):
+    """Henter tekst fra en given URL og fjerner script/style."""
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
-        # Fjern script- og style-tags
         for script in soup(["script", "style"]):
             script.decompose()
-        text = soup.get_text(separator=' ', strip=True)
-        return text
+        return soup.get_text(separator=' ', strip=True)
     except Exception as e:
         st.error(f"Fejl ved hentning af hjemmesideindhold: {e}")
-        return None
+        return ""
 
-# Indlæs eller initialiser state ved app-start
+# Indlæs eller initialiser state
 load_state()
 
-# Hvis vi ikke har en API-nøgle endnu, beder vi brugeren om at indtaste den
+# API-nøgle input
 if not st.session_state["api_key"]:
     api_input = st.text_input("Indtast OpenAI API-nøgle", type="password")
     if api_input:
@@ -87,10 +84,9 @@ if not st.session_state["api_key"]:
     else:
         st.stop()
 
-# Sæt API-nøglen til openai
 openai.api_key = st.session_state["api_key"]
 
-# Sidebar navigation
+# --- Sidebar Navigation ---
 st.sidebar.header("Navigation")
 if st.sidebar.button("Skriv SEO-tekst"):
     st.session_state["page"] = "seo"
@@ -101,7 +97,7 @@ st.sidebar.header("Virksomhedsprofiler")
 
 profile_names = list(st.session_state["profiles"].keys())
 
-# Vis profiler med slet-ikon ved siden af profilnavnet
+# Viser profiler i sidebaren og slet-knap
 for name in profile_names:
     col1, col2 = st.sidebar.columns([4, 1])
     with col1:
@@ -114,7 +110,7 @@ for name in profile_names:
             st.session_state["delete_profile"] = name
             save_state()
 
-# Hvis der trykkes på slet-ikonet, vis en bekræftelsesboks
+# Bekræftelsesprompt når man vil slette en profil
 if st.session_state.get("delete_profile"):
     profile_to_delete = st.session_state["delete_profile"]
     st.sidebar.warning(f"Er du sikker på, at du vil slette profilen '{profile_to_delete}'?")
@@ -133,11 +129,16 @@ if st.session_state.get("delete_profile"):
 
 if st.sidebar.button("Opret ny profil"):
     new_profile_name = f"Ny profil {len(profile_names) + 1}"
-    st.session_state["profiles"][new_profile_name] = {"brand_profile": "", "blacklist": "", "produkt_info": ""}
+    st.session_state["profiles"][new_profile_name] = {
+        "brand_profile": "",
+        "blacklist": "",
+        "produkt_info": ""
+    }
     st.session_state["current_profile"] = new_profile_name
     st.session_state["page"] = "profil"
     save_state()
 
+# Hent current data
 current_data = st.session_state["profiles"].get(
     st.session_state["current_profile"],
     {"brand_profile": "", "blacklist": "", "produkt_info": ""}
@@ -147,16 +148,16 @@ if current_data.get("brand_profile", "").strip():
 else:
     st.sidebar.info("Ingen virksomhedsprofil fundet endnu.")
 
-# Side: Redigér virksomhedsprofil
+# --- Side: Redigér virksomhedsprofil ---
 if st.session_state["page"] == "profil":
     st.header("Redigér virksomhedsprofil")
     
-    # Vælg profilnavn
     current_profile_name = st.text_input(
         "Navn på virksomhedsprofil:",
         value=st.session_state["current_profile"],
         key="profile_name_display"
     )
+    # Skift navn på profil
     if current_profile_name != st.session_state["current_profile"]:
         old_name = st.session_state["current_profile"]
         if current_profile_name.strip():
@@ -165,29 +166,52 @@ if st.session_state["page"] == "profil":
             current_data = st.session_state["profiles"][current_profile_name]
             save_state()
 
-    # NY PROMPT: Få AI til at skrive meget detaljerede produktlister
-    st.subheader("Automatisk udfyld profil (med detaljerede produkter)")
-    website_url = st.text_input("Indtast URL til en side med mange produktdetaljer:")
-    
-    if st.button("Hent og generer profil + produkter"):
+    # 1) Automatiske generering KUN af virksomhedsprofil
+    st.subheader("Automatisk udfyld profil (Uden produktsøgning)")
+    website_url = st.text_input("Indtast URL til en side med virksomheds-info (ikke produkter).")
+    if st.button("Hent og generer profil"):
         if website_url:
-            website_text = fetch_website_content(website_url)
-            if website_text:
-                # Her beder vi AI om at liste alle produkter i detaljer:
-                # 1) virksomhedsprofil (kort)
-                # 2) "produkter" i et JSON-felt - med detaljer, fx "navn", "beskrivelse", "materialer", "pris" etc.
+            text = fetch_website_content(website_url)
+            if text:
+                # Prompt for en profil: Kun bed om en generel firmabeskrivelse
                 prompt = (
-                    "Læs hjemmesideteksten herunder og returnér et JSON-objekt med to nøgler: "
-                    "'virksomhedsprofil' og 'produkter'. \n\n"
-                    "1) 'virksomhedsprofil': Giv en kort præsentation af virksomheden.\n"
-                    "2) 'produkter': En detaljeret liste (array) af produkter. Hvert produkt skal have mindst:\n"
-                    "   - navn\n"
-                    "   - kort beskrivelse\n"
-                    "   - materialer eller lignende, hvis det fremgår\n"
-                    "   - andre brugbare detaljer (pris, størrelse, brugsområder, m.v.)\n\n"
-                    "Returnér kun ren JSON uden ekstra kommentarer. Husk at medtage så mange produkter som muligt "
-                    "fra tekstgrundlaget.\n\n"
-                    f"{website_text[:8000]}"  # Vi tager fx 8000 tegn for at få så meget data som muligt
+                    "Læs hjemmesideteksten herunder og skriv en kort, men fyldig virksomhedsprofil. "
+                    "Inkluder historie, kerneværdier og vigtigste fokusområder. Returnér KUN profilteksten:\n\n"
+                    f"{text[:7000]}"
+                )
+                try:
+                    response = openai.ChatCompletion.create(
+                        model="gpt-4-turbo",
+                        messages=[{"role": "user", "content": prompt}],
+                        max_tokens=1000
+                    )
+                    brand_profile = response.choices[0].message.content.strip()
+                    
+                    # Gem i brand_profile
+                    st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = brand_profile
+                    current_data["brand_profile"] = brand_profile
+                    save_state()
+                    
+                    st.success("Virksomhedsprofil gemt!")
+                    st.text_area("Genereret virksomhedsprofil", brand_profile, height=200)
+                except Exception as e:
+                    st.error(f"Fejl ved generering af virksomhedsprofil: {e}")
+        else:
+            st.warning("Indtast venligst en URL med virksomhedens info.")
+
+    # 2) Ny sektion: Hent og generer PRODUKTER (ligger i produkt_info)
+    st.subheader("Automatisk udfyld PRODUKTER")
+    product_url = st.text_input("Indtast URL til en side, hvor produkter er listet (med detaljer).")
+    if st.button("Hent og generer produkter"):
+        if product_url:
+            text = fetch_website_content(product_url)
+            if text:
+                # Prompt, der beder om en produktliste i JSON
+                prompt = (
+                    "Analysér hjemmesideteksten herunder, og returnér en JSON-liste 'produkter'. "
+                    "Hvert element skal mindst indeholde: navn, kort beskrivelse, materialer, pris, o.l. "
+                    "Hvis prisen ikke fremgår, skriv 'Ukendt'. Returnér KUN JSON:\n\n"
+                    f"{text[:7000]}"
                 )
                 try:
                     response = openai.ChatCompletion.create(
@@ -196,101 +220,96 @@ if st.session_state["page"] == "profil":
                         max_tokens=2000
                     )
                     raw_text = response.choices[0].message.content.strip()
-
+                    
+                    # Forsøg at parse JSON
                     try:
-                        parsed = json.loads(raw_text)
-                        brand_profile = parsed.get("virksomhedsprofil", "")
-                        produkt_list = parsed.get("produkter", [])
-
-                        # Gemmer brand_profile
-                        st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = brand_profile
-                        current_data["brand_profile"] = brand_profile
+                        product_list = json.loads(raw_text)
+                        # Hvis alt går vel, gem det i produkt_info (som streng)
+                        product_str = json.dumps(product_list, ensure_ascii=False, indent=2)
                         
-                        # Hvis "produkter" er en liste, gem i produkt_info (som JSON)
-                        # Du kan selv vælge, om du vil gemme den som streng
-                        if isinstance(produkt_list, list):
-                            product_data_str = json.dumps(produkt_list, ensure_ascii=False, indent=2)
-                        else:
-                            # Hvis "produkter" ikke er en liste
-                            product_data_str = str(produkt_list)
-
-                        st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = product_data_str
-                        current_data["produkt_info"] = product_data_str
-                        
+                        st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = product_str
+                        current_data["produkt_info"] = product_str
                         save_state()
                         
-                        st.success("Gemte virksomhedsprofil + produktliste i JSON-format!")
-                        st.text_area("Virksomhedsprofil (fra AI)", brand_profile, height=150)
-                        st.text_area("Produkter (fra AI)", product_data_str, height=200)
-                    
+                        st.success("Gemte produktlisten i 'produkt_info'")
+                        st.text_area("AI-generate produkter (JSON)", product_str, height=250)
                     except Exception as parse_err:
-                        st.error("Kunne ikke parse JSON-svaret fra AI. Her er hele AI-svaret:")
-                        st.text_area("AI-svar", raw_text, height=400)
+                        st.error("Kunne ikke parse JSON-svaret. Her er hele AI-svaret:")
+                        st.text_area("AI-svar", raw_text, height=300)
                 except Exception as e:
-                    st.error(f"Fejl ved kald til OpenAI: {e}")
+                    st.error(f"Fejl ved generering af produktliste: {e}")
         else:
-            st.warning("Indtast venligst en gyldig URL!")
+            st.warning("Indtast venligst en URL med produkterne.")
 
-    # Redigér profiltekst manuelt
+    # Mulighed for at redigere profiltekst manuelt
     st.subheader("Redigér profil manuelt")
-    profil_tekst = st.text_area("Redigér profil her:", current_data.get("brand_profile", ""), height=200)
-    if st.button("Gem ændringer", key="save_profile"):
-        st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = profil_tekst
+    edited_profile = st.text_area("Virksomhedsprofil", current_data.get("brand_profile", ""), height=200)
+    if st.button("Gem ændringer i profil", key="save_profile"):
+        st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = edited_profile
+        current_data["brand_profile"] = edited_profile
         save_state()
-        st.success("Profil opdateret!")
-    
+        st.success("Profil opdateret manuelt!")
+
+    # Mulighed for at redigere produktinfo manuelt
+    st.subheader("Produktinfo (manuelt)")
+    edited_product_info = st.text_area("Redigér produktinfo", current_data.get("produkt_info", ""), height=200)
+    if st.button("Gem ændringer i produktinfo", key="save_product_info"):
+        st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = edited_product_info
+        current_data["produkt_info"] = edited_product_info
+        save_state()
+        st.success("Produktdata opdateret manuelt!")
+
+    # Blacklist
     st.markdown("---")
     st.subheader("Ord/sætninger AI ikke må bruge")
-    blacklist = st.text_area("Skriv ord eller sætninger adskilt med komma:", current_data.get("blacklist", ""))
+    edited_blacklist = st.text_area("Skriv ord eller sætninger adskilt med komma:", current_data.get("blacklist", ""))
     if st.button("Gem begrænsninger", key="save_blacklist"):
-        st.session_state["profiles"][st.session_state["current_profile"]]["blacklist"] = blacklist
+        st.session_state["profiles"][st.session_state["current_profile"]]["blacklist"] = edited_blacklist
+        current_data["blacklist"] = edited_blacklist
         save_state()
         st.success("Begrænsninger gemt!")
-    
+
+    # Mulighed for at uploade CSV/XLSX/PDF og gemme i produkt_info
     st.markdown("---")
-    st.subheader("Upload eller indsæt produktdata manuelt")
-    st.info("Upload en CSV, Excel eller PDF-fil med produktdata. Denne information gemmes under din profil.")
-    produkt_data_file = st.file_uploader("Upload CSV, Excel eller PDF",
-                                         type=["csv", "xlsx", "pdf"],
-                                         key=f"produkt_upload_{st.session_state['current_profile']}")
-    if produkt_data_file:
-        st.write(f"🔄 Fil uploadet: {produkt_data_file.name}")
+    st.subheader("Upload filer med produktdata")
+    prod_file = st.file_uploader("CSV, Excel eller PDF", type=["csv", "xlsx", "pdf"])
+    if prod_file:
+        st.write(f"🔄 Fil uploadet: {prod_file.name}")
         extracted = ""
-        if produkt_data_file.name.endswith(".csv"):
-            df = pd.read_csv(produkt_data_file)
+        if prod_file.name.endswith(".csv"):
+            df = pd.read_csv(prod_file)
             extracted = df.to_string(index=False)
-        elif produkt_data_file.name.endswith(".xlsx"):
-            df = pd.read_excel(produkt_data_file)
+        elif prod_file.name.endswith(".xlsx"):
+            df = pd.read_excel(prod_file)
             extracted = df.to_string(index=False)
-        elif produkt_data_file.name.endswith(".pdf"):
-            reader = PyPDF2.PdfReader(produkt_data_file)
+        elif prod_file.name.endswith(".pdf"):
+            reader = PyPDF2.PdfReader(prod_file)
             for page in reader.pages:
                 extracted += page.extract_text()
         st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = extracted
         current_data["produkt_info"] = extracted
         save_state()
-        st.success("Produktinformation gemt!")
-    
-    produkt_info_manual = st.text_area("Eller indsæt produktdata manuelt:", current_data.get("produkt_info", ""), height=150)
-    if st.button("Gem produktdata", key="save_product_info"):
-        st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = produkt_info_manual
-        current_data["produkt_info"] = produkt_info_manual
-        save_state()
-        st.success("Produktdata opdateret!")
+        st.success("Produktinformation gemt fra fil!")
 
-# Side: Generér SEO-tekst
-if st.session_state["page"] == "seo":
+# --- Side: Generér SEO-tekst ---
+elif st.session_state["page"] == "seo":
     st.header("Generér SEO-tekst")
     
+    current_data = st.session_state["profiles"].get(
+        st.session_state["current_profile"],
+        {"brand_profile": "", "blacklist": "", "produkt_info": ""}
+    )
     st.subheader("Virksomhedsprofil")
     st.markdown(current_data.get("brand_profile", "Ingen profiltekst fundet."))
-    
+
     # Inputfelter for SEO-parametre
     seo_keyword = st.text_input("Søgeord / Emne", value="")
     laengde = st.number_input("Ønsket tekstlængde (antal ord)", min_value=50, max_value=2000, value=300, step=50)
-    tone = st.selectbox("Vælg tone-of-voice",
-                        options=["Neutral", "Formel", "Venlig", "Entusiastisk"],
-                        index=0)
+    tone = st.selectbox(
+        "Vælg tone-of-voice",
+        options=["Neutral", "Formel", "Venlig", "Entusiastisk"],
+        index=0
+    )
     antal = st.selectbox("Antal tekster", options=list(range(1, 11)), index=0)
     
     if seo_keyword:
@@ -321,7 +340,7 @@ if st.session_state["page"] == "seo":
                         st.session_state["generated_texts"].append(seo_text)
                     except Exception as e:
                         st.error(f"Fejl ved generering af tekst: {e}")
-            # Gem de genererede tekster, så de bevares mellem genindlæsninger
+            # Gem de genererede tekster
             save_state()
             
             if st.session_state["generated_texts"]:
@@ -329,9 +348,12 @@ if st.session_state["page"] == "seo":
                 for idx, txt in enumerate(st.session_state["generated_texts"]):
                     with st.expander(f"SEO-tekst {idx+1}"):
                         st.markdown(txt, unsafe_allow_html=True)
-                        st.download_button(f"Download tekst {idx+1}",
-                                           txt,
-                                           file_name=f"seo_tekst_{idx+1}.txt")
+                        st.download_button(
+                            f"Download tekst {idx+1}",
+                            txt,
+                            file_name=f"seo_tekst_{idx+1}.txt"
+                        )
                         if st.button(f"❌ Slet tekst {idx+1}", key=f"delete_text_{idx}"):
                             st.session_state["generated_texts"].pop(idx)
                             save_state()
+                            st.experimental_rerun()
