@@ -3,10 +3,25 @@ import openai
 import pandas as pd
 import PyPDF2
 import io
+import json  # Importér JSON-modulet for filhåndtering
 
 st.set_page_config(page_title="AI-assisteret SEO generator", layout="wide")
 
+# Funktion til at gemme profiler til en fil
+def save_profiles_to_file():
+    with open("profiles.json", "w") as f:
+        json.dump(st.session_state["profiles"], f)
 
+# Funktion til at læse profiler fra fil
+def load_profiles_from_file():
+    try:
+        with open("profiles.json", "r") as f:
+            st.session_state["profiles"] = json.load(f)
+    except FileNotFoundError:
+        st.session_state["profiles"] = {}
+
+# Når appen starter, prøv at læse profiler fra filen
+load_profiles_from_file()
 
 if "api_key" not in st.session_state:
     st.session_state["api_key"] = ""
@@ -14,16 +29,12 @@ if "page" not in st.session_state:
     st.session_state["page"] = "seo"
 if "generated_texts" not in st.session_state:
     st.session_state["generated_texts"] = []
-if "profiles" not in st.session_state:
-    st.session_state["profiles"] = {}
 if "rerun_flag" not in st.session_state:
     st.session_state["rerun_flag"] = False
 
 if "current_profile" not in st.session_state:
     st.session_state["current_profile"] = "Standard profil"
     st.session_state["generated_texts"] = []
-
-st.title("📝 Skriv SEO-tekster med AI")
 
 # API-nøgle
 if not st.session_state["api_key"]:
@@ -42,9 +53,6 @@ st.sidebar.header("Navigation")
 if st.sidebar.button("Skriv SEO-tekst"):
     st.session_state["page"] = "seo"
 if st.sidebar.button("Redigér virksomhedsprofil"):
-    st.session_state["page"] = "profil"
-
-
     st.session_state["page"] = "profil"
 
 st.sidebar.markdown("---")
@@ -73,8 +81,6 @@ if st.sidebar.button("Opret ny profil"):
     st.session_state["current_profile"] = new_profile_name
     st.session_state["page"] = "profil"
     st.experimental_rerun()
-
-
 
 current_data = st.session_state["profiles"].get(st.session_state["current_profile"], {"brand_profile": "", "blacklist": "", "produkt_info": ""})
 if current_data.get("brand_profile", "").strip():
