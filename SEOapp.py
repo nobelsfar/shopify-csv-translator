@@ -53,7 +53,6 @@ def save_state():
         st.error(f"Fejl ved gemning af state: {e}")
 
 def initialize_state():
-    """Initialiserer session_state med standardværdier."""
     st.session_state["profiles"] = {}
     st.session_state["api_key"] = ""
     st.session_state["page"] = "seo"
@@ -341,8 +340,7 @@ elif st.session_state["page"] == "seo":
                     # Hardcode constraints:
                     # 1) Ingen "bæredygtighed"
                     # 2) Normal dansk overskrift (ikke Title Case)
-                    # 3) Inkluder brand_profil + produkt_info
-                    # 4) Overhold blacklist
+                    # 3) Overhold blacklist
                     prompt = (
                         f"Skriv en SEO-optimeret tekst på dansk om '{seo_keyword}'. "
                         "Skriv overskrifter på normal dansk (ikke Title Case). "
@@ -371,17 +369,18 @@ elif st.session_state["page"] == "seo":
 
             if st.session_state["generated_texts"]:
                 st.subheader("Dine SEO-tekster")
-                for idx, txt in enumerate(st.session_state["generated_texts"]):
-                    with st.expander(f"SEO-tekst {idx+1}"):
+                # Her itererer vi over en kopi for at undgå slette-problemet
+                texts_copy = st.session_state["generated_texts"][:]
+                for i, txt in enumerate(texts_copy):
+                    with st.expander(f"SEO-tekst {i+1}"):
                         st.markdown(txt, unsafe_allow_html=True)
-                        # Download as HTML
                         st.download_button(
-                            label=f"Download SEO-tekst {idx+1} som HTML",
+                            label=f"Download SEO-tekst {i+1} som HTML",
                             data=txt,
-                            file_name=f"seo_text_{idx+1}.html",
+                            file_name=f"seo_text_{i+1}.html",
                             mime="text/html"
                         )
-                        if st.button(f"Slet tekst {idx+1}", key=f"del_{idx}"):
-                            st.session_state["generated_texts"].pop(idx)
+                        if st.button(f"Slet tekst {i+1}", key=f"del_{i}"):
+                            st.session_state["generated_texts"].pop(i)
                             save_state()
                             st.experimental_rerun()
