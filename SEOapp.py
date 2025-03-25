@@ -76,30 +76,38 @@ elif st.session_state["page"] == "seo":
         tone = st.selectbox("Tone-of-voice", ["Professionel", "Venlig", "Eksklusiv", "Teknisk", "Inspirerende", "Neutral", "Kreativ"], index=0)
         laengde = st.number_input("Ønsket tekstlængde (ord)", min_value=100, max_value=1500, value=300)
 
-        if st.button("Generér SEO-tekst"):
-            seo_prompt = (
-                f"Skriv en SEO-optimeret tekst på dansk om '{seo_keyword}'. "
-                f"Brug følgende virksomhedsprofil som reference: {st.session_state['brand_profile']}. "
-                f"Strukturer teksten med SEO-venlige overskrifter (h1, h2, h3) og brug relevante nøgleord i overskrifterne. "
-                f"Teksten skal være cirka {laengde} ord lang."
-            )
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            generate = st.button("Generér SEO-tekst")
+        with col2:
+            antal = st.selectbox("Antal tekster", options=list(range(1, 11)), index=0)
 
-            if tone:
-                seo_prompt += f" Teksten skal have en '{tone}' tone-of-voice."
+        if generate:
+            for i in range(antal):
+                seo_prompt = (
+                    f"Skriv en SEO-optimeret tekst på dansk om '{seo_keyword}'. "
+                    f"Brug følgende virksomhedsprofil som reference: {st.session_state['brand_profile']}. "
+                    f"Strukturer teksten med SEO-venlige overskrifter (h1, h2, h3) og brug relevante nøgleord i overskrifterne. "
+                    f"Teksten skal være cirka {laengde} ord lang."
+                )
 
-            if "blacklist" in st.session_state and st.session_state["blacklist"].strip():
-                seo_prompt += f" Undgå følgende ord eller sætninger i teksten: {st.session_state['blacklist']}."
+                if tone:
+                    seo_prompt += f" Teksten skal have en '{tone}' tone-of-voice."
 
-            seo_response = client.chat.completions.create(
-                model="gpt-4-turbo",
-                messages=[{"role": "user", "content": seo_prompt}],
-                max_tokens=laengde * 2
-            )
+                if "blacklist" in st.session_state and st.session_state["blacklist"].strip():
+                    seo_prompt += f" Undgå følgende ord eller sætninger i teksten: {st.session_state['blacklist']}."
 
-            seo_text = seo_response.choices[0].message.content.strip()
-            st.text_area("Genereret SEO-tekst:", seo_text, height=400)
+                seo_response = client.chat.completions.create(
+                    model="gpt-4-turbo",
+                    messages=[{"role": "user", "content": seo_prompt}],
+                    max_tokens=laengde * 2
+                )
 
-            if st.download_button("Download tekst", seo_text, "seo_tekst.txt"):
-                st.success("Tekst downloadet!")
+                seo_text = seo_response.choices[0].message.content.strip()
+                st.text_area(f"Genereret SEO-tekst {i+1}:", seo_text, height=400, key=f"seo_{i}")
+
+                st.download_button(
+                    f"Download tekst {i+1}", seo_text, file_name=f"seo_tekst_{i+1}.txt"
+                )
     else:
         st.info("Start med at oprette en virksomhedsprofil i sidepanelet for at kunne generere SEO-tekster.")
