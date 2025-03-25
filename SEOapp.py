@@ -10,7 +10,7 @@ import json
 import requests
 from bs4 import BeautifulSoup
 
-# Vælg den korrekte sti til state-filen. På Streamlit Cloud bruges /mnt/data, ellers gemmes lokalt.
+# Vælg den korrekte sti til state-filen. På Streamlit Cloud bruges /mnt/data/state.json, ellers gemmes lokalt.
 if os.path.exists("/mnt/data") and os.access("/mnt/data", os.W_OK):
     STATE_FILE = "/mnt/data/state.json"
 else:
@@ -65,7 +65,7 @@ def initialize_state():
 def fetch_product_links(url):
     """
     Finder alle /products/ links på en kollektionsside, 
-    f.eks. https://noyer.dk/collections/all
+    men undgår duplikerede links. Ex: https://noyer.dk/collections/all
     """
     links = []
     try:
@@ -77,25 +77,28 @@ def fetch_product_links(url):
             href = a_tag["href"]
             if href.startswith("/products/"):
                 full = "https://noyer.dk" + href
-                links.append(full)
+                # UNDGÅ DUPLIKATER:
+                if full not in links:
+                    links.append(full)
     except Exception as e:
         st.error(f"Fejl ved hentning af produktlinks: {e}")
     return links
 
 def fetch_product_description(url):
     """
-    Henter en produktside og forsøger at finde .product__description.
-    Hvis den ikke findes, tager vi hele sidens tekst.
+    Henter en produktside og forsøger at finde .product-info__description.
+    Hvis den ikke findes, tager vi hele sidens tekst som fallback.
     """
     try:
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
-        desc_elem = soup.select_one(".product__description")
+        # Ændret til .product-info__description efter dit screenshot
+        desc_elem = soup.select_one(".product-info__description")
         if desc_elem:
             return desc_elem.get_text(separator=" ", strip=True)
         else:
-            # fallback, hvis .product__description ikke findes
+            # fallback, hvis .product-info__description ikke findes
             return soup.get_text(separator=" ", strip=True)
     except Exception as e:
         st.error(f"Fejl ved hentning af {url}: {e}")
@@ -104,7 +107,7 @@ def fetch_product_description(url):
 def create_product_json_from_bigtext(big_text, count):
     """
     Sender big_text til GPT og beder om et JSON-array 'produkter'
-    med nøjagtigt `count` objekter (ét for hver side).
+    med nøjagtig `count` objekter (ét for hver side).
     """
     prompt = (
         f"Her følger tekst fra {count} produktsider (Noyer). "
