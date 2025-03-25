@@ -10,7 +10,10 @@ st.title("AI-assisteret SEO-generator")
 
 # API-nøgle
 if not st.session_state["api_key"]:
-    st.session_state["api_key"] = st.text_input("Indtast OpenAI API-nøgle", type="password")
+    api_input = st.text_input("Indtast OpenAI API-nøgle", type="password")
+    if api_input:
+        st.session_state["api_key"] = api_input
+        st.experimental_rerun()
     st.stop()
 
 client = openai.OpenAI(api_key=st.session_state["api_key"])
@@ -40,7 +43,7 @@ if "brand_profile" not in st.session_state:
 else:
     st.subheader("Virksomhedens gemte profil (klik for at ændre)")
     edited_profile = st.text_area("Virksomhedsprofil:", st.session_state["brand_profile"], height=200)
-    
+
     if st.button("Opdater profil"):
         st.session_state["brand_profile"] = edited_profile
         st.success("Profil opdateret!")
@@ -69,4 +72,3 @@ else:
 
         if st.download_button("Download tekst", seo_text, "seo_tekst.txt"):
             st.success("Tekst downloadet!")
-
