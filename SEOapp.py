@@ -1,80 +1,72 @@
 import streamlit as st
-import pandas as pd
 import openai
-import base64
-from PIL import Image
-import io
 
-st.title("Avanceret SEO Tekstgenerator")
+st.set_page_config(page_title="AI-assisteret SEO generator", layout="wide")
 
-api_key = st.text_input("OpenAI API-nøgle", type="password")
+if "api_key" not in st.session_state:
+    st.session_state["api_key"] = ""
 
-if api_key:
-    client = openai.OpenAI(api_key=api_key)
+st.title("AI-assisteret SEO-generator")
 
-    # Upload produktdata
-    uploaded_csv = st.file_uploader("Upload produktdata (CSV)", type=["csv"])
-    if uploaded_csv:
-        product_df = pd.read_csv(uploaded_csv)
-        st.success("Produktdata indlæst!")
+# API-nøgle
+if not st.session_state["api_key"]:
+    st.session_state["api_key"] = st.text_input("Indtast OpenAI API-nøgle", type="password")
+    st.stop()
 
-    # Upload billeder
-    uploaded_images = st.file_uploader("Upload produktbilleder", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
+client = openai.OpenAI(api_key=st.session_state["api_key"])
 
-    # Virksomhedens DNA
-    brand_dna = st.text_area("Beskriv virksomhedens DNA, værdier, stil og målgruppe:")
+# Initial opsætning af brand-profil
+if "brand_profile" not in st.session_state:
+    st.header("Opsætning af din virksomhedsprofil")
 
-    seo_keyword = st.text_input("Primært SEO-søgeord")
-    emne = st.text_input("Emne for teksten")
-    tone = st.selectbox("Tone-of-voice", ["Professionel", "Informativ", "Inspirerende", "Humoristisk", "Salg"])
+    dna = st.text_area("Kort beskrivelse af din virksomheds DNA og målgruppe")
+    produkter = st.text_area("Hvilke typer produkter sælger du?")
+    tone = st.selectbox("Foretrukken tone-of-voice", ["Professionel", "Informativ", "Inspirerende", "Humoristisk", "Salg"])
 
-    if st.button("Generér SEO-tekst"):
-        prompt = f"Skriv en SEO-optimeret tekst om '{emne}' med søgeordet '{seo_keyword}'. Tone: {tone}. Virksomhedens DNA: {brand_dna}."
-
-        if uploaded_csv:
-            product_info = product_df.head(3).to_dict(orient='records')
-            prompt += f" Produktinformation: {product_info}."
-
-        if uploaded_images:
-            image_descriptions = []
-            for img in uploaded_images:
-                img_bytes = img.getvalue()
-                img_base64 = base64.b64encode(img_bytes).decode()
-
-                # OpenAI Vision API kan analysere billeder
-                vision_response = client.chat.completions.create(
-                    model="gpt-4-vision-preview",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": "Beskriv billedet i korte og præcise termer til brug i produktbeskrivelse."},
-                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"}}
-                            ]
-                        }
-                    ],
-                    max_tokens=100
-                )
-                image_descriptions.append(vision_response.choices[0].message.content.strip())
-            
-            prompt += f" Billedbeskrivelser: {image_descriptions}."
-
-        try:
-            # Generér tekst fra samlet data
-            response = client.chat.completions.create(
-                model="gpt-4-turbo",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=1000
-            )
-            seo_text = response.choices[0].message.content.strip()
-
-            st.subheader("Genereret SEO-tekst")
-            edited_text = st.text_area("Tilpas teksten yderligere her:", seo_text, height=400)
-
-            if st.download_button("Download SEO-tekst", edited_text, "seo_text.txt"):
-                st.success("SEO-tekst downloadet!")
-        except Exception as e:
-            st.error(f"Fejl under generering: {e}")
+    if st.button("Generér virksomhedsprofil"):
+        prompt = (
+            f"Udarbejd en kort, klar profiltekst for en virksomhed med følgende DNA: '{dna}', "
+            f"som sælger '{produkter}' med en '{tone}' tone-of-voice."
+        )
+        response = client.chat.completions.create(
+            model="gpt-4-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300
+        )
+        st.session_state["brand_profile"] = response.choices[0].message.content.strip()
+        st.success("Profil genereret! Du kan rette nedenfor.")
+        st.experimental_rerun()
 
 else:
-    st.info("Indtast API-nøglen for at bruge appen.")
+    st.subheader("Virksomhedens gemte profil (klik for at ændre)")
+    edited_profile = st.text_area("Virksomhedsprofil:", st.session_state["brand_profile"], height=200)
+    
+    if st.button("Opdater profil"):
+        st.session_state["brand_profile"] = edited_profile
+        st.success("Profil opdateret!")
+
+    st.markdown("---")
+
+    # SEO-tekstgenerering med profil
+    seo_keyword = st.text_input("SEO søgeord/emne for tekst")
+    laengde = st.number_input("Ønsket tekstlængde (ord)", min_value=100, max_value=1500, value=300)
+
+    if st.button("Generér SEO-tekst"):
+        seo_prompt = (
+            f"Skriv en SEO-optimeret tekst på dansk om '{seo_keyword}'. "
+            f"Brug følgende virksomhedsprofil som reference: {st.session_state['brand_profile']}. "
+            f"Teksten skal være cirka {laengde} ord lang."
+        )
+
+        seo_response = client.chat.completions.create(
+            model="gpt-4-turbo",
+            messages=[{"role": "user", "content": seo_prompt}],
+            max_tokens=laengde * 2
+        )
+
+        seo_text = seo_response.choices[0].message.content.strip()
+        st.text_area("Genereret SEO-tekst:", seo_text, height=400)
+
+        if st.download_button("Download tekst", seo_text, "seo_tekst.txt"):
+            st.success("Tekst downloadet!")
+
