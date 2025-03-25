@@ -69,17 +69,25 @@ else:
     st.sidebar.info("Ingen virksomhedsprofil fundet endnu.")
 
 if st.session_state["page"] == "profil":
+    current_profile_name = st.text_input("Navn på virksomhedsprofil:", value=st.session_state["current_profile"], key="profile_name_display")
     st.subheader("Rediger virksomhedsprofil")
     profil_tekst = st.text_area("Redigér profil her:", current_data.get("brand_profile", ""), height=200)
     if st.button("Gem ændringer"):
-        st.session_state["brand_profile"] = profil_tekst
+        old_name = st.session_state["current_profile"]
+        new_name = current_profile_name.strip()
+
+        if new_name != old_name:
+            st.session_state["profiles"][new_name] = st.session_state["profiles"].pop(old_name)
+            st.session_state["current_profile"] = new_name
+
+        st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = profil_tekst
         st.success("Profil opdateret!")
 
     st.markdown("---")
     st.subheader("Ord/sætninger AI ikke må bruge")
     blacklist = st.text_area("Skriv ord eller sætninger adskilt med komma:", current_data.get("blacklist", ""))
     if st.button("Gem begrænsninger"):
-        current_data["blacklist"] = blacklist
+        st.session_state["profiles"][st.session_state["current_profile"]]["blacklist"] = blacklist
         st.success("Begrænsninger gemt!")
 
     st.markdown("---")
@@ -91,6 +99,7 @@ if st.session_state["page"] == "profil":
 
     if produkt_data:
         st.session_state['produkt_data'] = produkt_data
+        st.session_state['profiles'][st.session_state['current_profile']]['produkt_info'] = ''
         st.write(f"🔄 Fil uploadet: {produkt_data.name}")
         extracted = ""
         if produkt_data.name.endswith(".csv"):
