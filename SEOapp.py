@@ -44,6 +44,14 @@ if st.sidebar.button("Skriv SEO-tekst"):
 if st.sidebar.button("Redigér virksomhedsprofil"):
     st.session_state["page"] = "profil"
 
+# Skift til redigeringsvisning, når profil vælges
+if selected_profile and selected_profile != st.session_state["current_profile"]:
+    st.session_state["current_profile"] = selected_profile
+    st.session_state["page"] = "profil"
+    st.session_state["rerun_flag"] = True
+    st.stop()
+    st.session_state["page"] = "profil"
+
 st.sidebar.markdown("---")
 st.sidebar.header("Virksomhedsprofiler")
 
