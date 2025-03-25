@@ -197,12 +197,13 @@ if st.session_state["page"] == "seo":
         if generate:
             with st.spinner("Genererer SEO-tekst..."):
                 for i in range(antal):
+                    # Opdateret prompt uden bogstavelige HTML-tags for overskrifter
                     seo_prompt = (
                         f"Skriv en SEO-optimeret tekst på dansk om '{seo_keyword}'. "
                         f"Brug følgende virksomhedsprofil som reference: {current_data.get('brand_profile', '')}. "
                         f"Brug også følgende produktinformation: {current_data.get('produkt_info', '')}. "
-                        f"Inkluder en meta-titel, en meta-beskrivelse og SEO-venlige overskrifter (h1, h2, h3). "
-                        f"Inkluder relevante nøgleord naturligt og foreslå interne links, hvor det er relevant. "
+                        f"Strukturer teksten med klare overskrifter (fx en stor overskrift til titlen, mellemoverskrifter til afsnit og underoverskrifter til detaljer). "
+                        f"Inkluder en meta-titel, en meta-beskrivelse, relevante nøgleord og foreslå interne links, hvor det er muligt. "
                         f"Teksten skal være cirka {laengde} ord lang."
                     )
                     if tone:
@@ -220,6 +221,9 @@ if st.session_state["page"] == "seo":
                         st.session_state["generated_texts"].append(seo_text)
                     except Exception as e:
                         st.error(f"Fejl ved generering af tekst: {e}")
+            # Gem de genererede tekster, så de bevares mellem genindlæsninger
+            save_state()
+            
             if st.session_state["generated_texts"]:
                 st.subheader("Dine genererede SEO-tekster")
                 for idx, txt in enumerate(st.session_state["generated_texts"]):
