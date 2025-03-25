@@ -78,6 +78,92 @@ def fetch_website_content(url):
         st.error(f"Fejl ved hentning af hjemmesideindhold: {e}")
         return ""
 
+# --------------------------#
+# Flertrins-scraping til PRODUKTER
+# --------------------------#
+def get_product_links(collection_url):
+    """
+    Henter alle produktside-links fra en shopify-kollektion, 
+    ved at kigge efter .product-card a (tilpas CSS-selector ift. hjemmesiden).
+    """
+    links = []
+    try:
+        r = requests.get(collection_url, timeout=10)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, "html.parser")
+        # Her antager vi, at link til produktsider findes i .product-card a
+        # Tjek HTML-strukturen på noyer.dk for at bekræfte
+        for a_tag in soup.select(".product-card a"):
+            href = a_tag.get("href")
+            if href and href.startswith("/products/"):
+                full_link = "https://noyer.dk" + href
+                links.append(full_link)
+    except Exception as e:
+        st.error(f"Fejl ved hentning af produktlinks fra {collection_url}: {e}")
+    return links
+
+def fetch_product_page(url):
+    """
+    Går ind på en produktside og udtrækker den fulde beskrivelse, 
+    fx .product__description. Tilpas CSS-selector hvis nødvendigt.
+    """
+    try:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, "html.parser")
+        # Tjek at .product__description passer. 
+        desc_elem = soup.select_one(".product__description")
+        if desc_elem:
+            text = desc_elem.get_text(separator=" ", strip=True)
+        else:
+            # fallback: hele sidens tekst
+            text = soup.get_text(separator=" ", strip=True)
+        return text
+    except Exception as e:
+        st.error(f"Fejl ved hentning af {url}: {e}")
+        return ""
+
+def gather_all_product_texts(collection_url):
+    """
+    1) Få links til alle produktsider i kollektionen
+    2) Hent hver sides beskrivelse
+    3) Byg en stor streng med alt
+    """
+    links = get_product_links(collection_url)
+    big_text = ""
+    for link in links:
+        product_desc = fetch_product_page(link)
+        # Tilsæt en separator for hvert produkt
+        big_text += f"\n\n=== PRODUCT PAGE: {link} ===\n{product_desc}"
+    return big_text
+
+def create_product_json_from_bigtext(big_text):
+    """
+    Kald GPT for at parse big_text og returnere en JSON-liste af produkter
+    """
+    prompt = (
+        "Her følger tekst fra flere produktsider. Returnér KUN et JSON-array, 'produkter', "
+        "hvor hvert produkt har:\n"
+        " - 'navn': produktets navn\n"
+        " - 'beskrivelse': 5-6 sætninger, uden at nævne 'Salgspris' eller pris\n"
+        " - 'materialer': hvis muligt, ellers 'Ukendt'\n\n"
+        "Ingen triple backticks, ingen disclaimers. Returnér kun valid JSON.\n\n"
+        f"{big_text[:12000]}"
+    )
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2000
+        )
+        raw = response.choices[0].message.content.strip()
+        # Rens triple backticks / 'json'
+        raw = raw.replace("```", "").replace("json", "")
+        product_list = json.loads(raw)
+        return product_list
+    except Exception as e:
+        raise e
+
 # 1) Indlæs / initialiser state
 load_state()
 
@@ -206,42 +292,25 @@ if st.session_state["page"] == "profil":
         else:
             st.warning("Indtast venligst en URL med virksomhedens info.")
 
-    # B) AUTOMATISK UDFYLD PRODUKTER (gemmes i produkt_info)
+    # B) AUTOMATISK UDFYLD PRODUKTER (flertrins: samler links, crawler, AI)
     st.subheader("Automatisk udfyld PRODUKTER (lægger data i produkt_info)")
-    product_url = st.text_input("URL til en side, hvor produkterne er listet (med detaljer).")
-    if st.button("Hent og generer produkter"):
+    product_url = st.text_input("URL til en 'collections/all'-side, hvor produkterne er listet med links.")
+    if st.button("Hent og generer produkter (flertrins)"):
         if product_url:
-            raw_text = fetch_website_content(product_url)
-            if raw_text:
-                # Fjernet 'pris' i prompten
-                prompt = (
-                    "Analysér teksten herunder og returnér KUN en JSON-liste med 'produkter'. "
-                    "Hver liste-post skal indeholde mindst: navn, kort beskrivelse, materialer (hvis muligt). "
-                    "Returnér kun valid JSON. Ingen ekstra tekst.\n\n"
-                    f"{raw_text[:7000]}"
-                )
+            with st.spinner("Henter link til hver produktside, og derefter deres beskrivelser..."):
+                # 1) Saml alt fra detail-sider
+                big_text = gather_all_product_texts(product_url)
+            with st.spinner("Sender samlet tekst til GPT for at få JSON-liste..."):
                 try:
-                    response = openai.ChatCompletion.create(
-                        model="gpt-4-turbo",
-                        messages=[{"role": "user", "content": prompt}],
-                        max_tokens=2000
-                    )
-                    raw_response = response.choices[0].message.content.strip()
+                    product_list = create_product_json_from_bigtext(big_text)
+                    product_str = json.dumps(product_list, ensure_ascii=False, indent=2)
                     
-                    # Parse JSON-svaret
-                    try:
-                        product_list = json.loads(raw_response)
-                        product_str = json.dumps(product_list, ensure_ascii=False, indent=2)
-                        
-                        st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = product_str
-                        current_data["produkt_info"] = product_str
-                        save_state()
-                        
-                        st.success("Gemte produktlisten i 'produkt_info'!")
-                        st.text_area("Produkter (JSON fra AI)", product_str, height=250)
-                    except Exception as parse_err:
-                        st.error("Kunne ikke parse JSON-svaret. Her er AI-svaret:")
-                        st.text_area("AI-svar", raw_response, height=300)
+                    st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = product_str
+                    current_data["produkt_info"] = product_str
+                    save_state()
+                    
+                    st.success("Gemte produktlisten i 'produkt_info'!")
+                    st.text_area("Produkter (JSON fra AI)", product_str, height=250)
                 except Exception as e:
                     st.error(f"Fejl ved generering af produktliste: {e}")
         else:
