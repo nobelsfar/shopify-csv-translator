@@ -4,40 +4,58 @@ import pandas as pd
 import PyPDF2
 import io
 import json
+import os
+
+# Definer stien til state-filen. På Streamlit Cloud kan du bruge /mnt/data.
+STATE_FILE = "/mnt/data/state.json"
+
+def load_state():
+    if os.path.exists(STATE_FILE):
+        try:
+            with open(STATE_FILE, "r") as f:
+                state = json.load(f)
+            # Indlæs de gemte værdier i st.session_state
+            for key, value in state.items():
+                st.session_state[key] = value
+        except Exception as e:
+            st.error(f"Fejl ved indlæsning af state: {e}")
+            initialize_state()
+    else:
+        initialize_state()
+
+def save_state():
+    state = {
+        "profiles": st.session_state.get("profiles", {}),
+        "api_key": st.session_state.get("api_key", ""),
+        "page": st.session_state.get("page", "seo"),
+        "generated_texts": st.session_state.get("generated_texts", []),
+        "current_profile": st.session_state.get("current_profile", "Standard profil")
+    }
+    try:
+        with open(STATE_FILE, "w") as f:
+            json.dump(state, f)
+    except Exception as e:
+        st.error(f"Fejl ved gemning af state: {e}")
+
+def initialize_state():
+    st.session_state["profiles"] = {}
+    st.session_state["api_key"] = ""
+    st.session_state["page"] = "seo"
+    st.session_state["generated_texts"] = []
+    st.session_state["current_profile"] = "Standard profil"
+    save_state()
+
+# Indlæs eller initialiser state ved app-start
+load_state()
 
 st.set_page_config(page_title="AI-assisteret SEO generator", layout="wide")
-
-# Funktion til at gemme profiler til en fil
-def save_profiles_to_file():
-    with open("profiles.json", "w") as f:
-        json.dump(st.session_state["profiles"], f)
-
-# Funktion til at læse profiler fra fil
-def load_profiles_from_file():
-    try:
-        with open("profiles.json", "r") as f:
-            st.session_state["profiles"] = json.load(f)
-    except FileNotFoundError:
-        st.session_state["profiles"] = {}
-
-# Indlæs profiler ved app-start
-load_profiles_from_file()
-
-# Initialisering af session_state
-if "api_key" not in st.session_state:
-    st.session_state["api_key"] = ""
-if "page" not in st.session_state:
-    st.session_state["page"] = "seo"  # Default: SEO-generation
-if "generated_texts" not in st.session_state:
-    st.session_state["generated_texts"] = []
-if "current_profile" not in st.session_state:
-    st.session_state["current_profile"] = "Standard profil"
 
 # API-nøgle input
 if not st.session_state["api_key"]:
     api_input = st.text_input("Indtast OpenAI API-nøgle", type="password")
     if api_input:
         st.session_state["api_key"] = api_input
+        save_state()
     else:
         st.stop()
 
@@ -48,8 +66,10 @@ client = openai.OpenAI(api_key=st.session_state["api_key"])
 st.sidebar.header("Navigation")
 if st.sidebar.button("Skriv SEO-tekst"):
     st.session_state["page"] = "seo"
+    save_state()
 if st.sidebar.button("Redigér virksomhedsprofil"):
     st.session_state["page"] = "profil"
+    save_state()
 
 st.sidebar.markdown("---")
 st.sidebar.header("Virksomhedsprofiler")
@@ -62,18 +82,20 @@ for name in profile_names:
         if st.button(name, key=f"profile_btn_{name}"):
             st.session_state["current_profile"] = name
             st.session_state["page"] = "profil"
+            save_state()
     with col2:
         if st.button("🗑", key=f"delete_{name}"):
             st.session_state["profiles"].pop(name)
             if st.session_state["current_profile"] == name:
                 st.session_state["current_profile"] = "Standard profil"
-            save_profiles_to_file()
+            save_state()
+
 if st.sidebar.button("Opret ny profil"):
     new_profile_name = f"Ny profil {len(profile_names) + 1}"
     st.session_state["profiles"][new_profile_name] = {"brand_profile": "", "blacklist": "", "produkt_info": ""}
     st.session_state["current_profile"] = new_profile_name
     st.session_state["page"] = "profil"
-    save_profiles_to_file()
+    save_state()
 
 current_data = st.session_state["profiles"].get(
     st.session_state["current_profile"],
@@ -98,13 +120,13 @@ if st.session_state["page"] == "profil":
             st.session_state["profiles"][current_profile_name] = st.session_state["profiles"].pop(old_name)
             st.session_state["current_profile"] = current_profile_name
             current_data = st.session_state["profiles"][current_profile_name]
-            save_profiles_to_file()
+            save_state()
     
     # Redigér profiltekst
     profil_tekst = st.text_area("Redigér profil her:", current_data.get("brand_profile", ""), height=200)
     if st.button("Gem ændringer", key="save_profile"):
         st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = profil_tekst
-        save_profiles_to_file()
+        save_state()
         st.success("Profil opdateret!")
     
     st.markdown("---")
@@ -112,7 +134,7 @@ if st.session_state["page"] == "profil":
     blacklist = st.text_area("Skriv ord eller sætninger adskilt med komma:", current_data.get("blacklist", ""))
     if st.button("Gem begrænsninger", key="save_blacklist"):
         st.session_state["profiles"][st.session_state["current_profile"]]["blacklist"] = blacklist
-        save_profiles_to_file()
+        save_state()
         st.success("Begrænsninger gemt!")
     
     st.markdown("---")
@@ -137,7 +159,7 @@ if st.session_state["page"] == "profil":
         
         st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = extracted
         current_data["produkt_info"] = extracted
-        save_profiles_to_file()
+        save_state()
         st.success("Produktinformation gemt!")
     
     # Mulighed for at redigere produktdata manuelt
@@ -145,7 +167,7 @@ if st.session_state["page"] == "profil":
     if st.button("Gem produktdata", key="save_product_info"):
         st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = produkt_info_manual
         current_data["produkt_info"] = produkt_info_manual
-        save_profiles_to_file()
+        save_state()
         st.success("Produktdata opdateret!")
 
 # Side til generering af SEO-tekster
@@ -156,7 +178,7 @@ if st.session_state["page"] == "seo":
     st.subheader("Virksomhedsprofil")
     st.markdown(current_data.get("brand_profile", "Ingen profiltekst fundet."))
     
-    # Bemærk: Produktdata vises ikke her, men hentes stadig fra profilen til prompten.
+    # Bemærk: Produktdata vises ikke her, men hentes bag kulisserne til prompten.
     
     # Inputfelter for SEO-parametre
     seo_keyword = st.text_input("Søgeord / Emne", value="")
@@ -209,3 +231,4 @@ if st.session_state["page"] == "seo":
                                            file_name=f"seo_tekst_{idx+1}.txt")
                         if st.button(f"❌ Slet tekst {idx+1}", key=f"delete_{idx}"):
                             st.session_state["generated_texts"].pop(idx)
+                            save_state()
