@@ -55,7 +55,14 @@ if st.session_state["page"] == "profil":
 
     st.markdown("---")
     st.subheader("Upload eller indsæt produktdata")
+    if 'produkt_data' not in st.session_state:
+        st.session_state['produkt_data'] = None
+
     produkt_data = st.file_uploader("Upload CSV, Excel eller PDF", type=["csv", "xlsx", "pdf"], key="produkt_upload")
+    if produkt_data:
+        st.session_state['produkt_data'] = produkt_data
+    elif st.session_state['produkt_data']:
+        produkt_data = st.session_state['produkt_data']
     if produkt_data:
         st.write(f"🔄 Fil uploadet: {produkt_data.name}")
         extracted = ""
