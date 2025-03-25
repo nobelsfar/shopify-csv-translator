@@ -168,14 +168,13 @@ if st.session_state["page"] == "profil":
 
     # 1) Automatiske generering KUN af virksomhedsprofil
     st.subheader("Automatisk udfyld profil (Uden produktsøgning)")
-    website_url = st.text_input("Indtast URL til en side med virksomheds-info (ikke produkter).")
+    website_url = st.text_input("Indtast URL til en side med virksomheds-info (f.eks. 'Om os').")
     if st.button("Hent og generer profil"):
         if website_url:
             text = fetch_website_content(website_url)
             if text:
-                # Prompt for en profil: Kun bed om en generel firmabeskrivelse
                 prompt = (
-                    "Læs hjemmesideteksten herunder og skriv en kort, men fyldig virksomhedsprofil. "
+                    "Læs hjemmesideteksten herunder og skriv en fyldig virksomhedsprofil. "
                     "Inkluder historie, kerneværdier og vigtigste fokusområder. Returnér KUN profilteksten:\n\n"
                     f"{text[:7000]}"
                 )
@@ -187,7 +186,6 @@ if st.session_state["page"] == "profil":
                     )
                     brand_profile = response.choices[0].message.content.strip()
                     
-                    # Gem i brand_profile
                     st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = brand_profile
                     current_data["brand_profile"] = brand_profile
                     save_state()
@@ -199,18 +197,16 @@ if st.session_state["page"] == "profil":
         else:
             st.warning("Indtast venligst en URL med virksomhedens info.")
 
-    # 2) Ny sektion: Hent og generer PRODUKTER (ligger i produkt_info)
-    st.subheader("Automatisk udfyld PRODUKTER")
-    product_url = st.text_input("Indtast URL til en side, hvor produkter er listet (med detaljer).")
+    # 2) AUTOMATISK GENERERING AF PRODUKTER
+    st.subheader("Automatisk udfyld PRODUKTER (lægger data i produkt_info)")
+    product_url = st.text_input("Indtast URL til en side, hvor produkterne er listet.")
     if st.button("Hent og generer produkter"):
         if product_url:
             text = fetch_website_content(product_url)
             if text:
-                # Prompt, der beder om en produktliste i JSON
                 prompt = (
-                    "Analysér hjemmesideteksten herunder, og returnér en JSON-liste 'produkter'. "
-                    "Hvert element skal mindst indeholde: navn, kort beskrivelse, materialer, pris, o.l. "
-                    "Hvis prisen ikke fremgår, skriv 'Ukendt'. Returnér KUN JSON:\n\n"
+                    "Analysér teksten herunder og returnér KUN en JSON-liste med 'produkter'. "
+                    "Hver liste-post skal indeholde mindst: navn, kort beskrivelse, materialer, pris (eller 'Ukendt').\n\n"
                     f"{text[:7000]}"
                 )
                 try:
@@ -224,38 +220,37 @@ if st.session_state["page"] == "profil":
                     # Forsøg at parse JSON
                     try:
                         product_list = json.loads(raw_text)
-                        # Hvis alt går vel, gem det i produkt_info (som streng)
                         product_str = json.dumps(product_list, ensure_ascii=False, indent=2)
                         
                         st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = product_str
                         current_data["produkt_info"] = product_str
                         save_state()
                         
-                        st.success("Gemte produktlisten i 'produkt_info'")
-                        st.text_area("AI-generate produkter (JSON)", product_str, height=250)
+                        st.success("Gemte produktlisten i 'produkt_info'!")
+                        st.text_area("Produkter (JSON fra AI)", product_str, height=250)
                     except Exception as parse_err:
-                        st.error("Kunne ikke parse JSON-svaret. Her er hele AI-svaret:")
+                        st.error("Kunne ikke parse JSON-svaret. Her er AI-svaret:")
                         st.text_area("AI-svar", raw_text, height=300)
                 except Exception as e:
                     st.error(f"Fejl ved generering af produktliste: {e}")
         else:
             st.warning("Indtast venligst en URL med produkterne.")
 
-    # Mulighed for at redigere profiltekst manuelt
+    # Redigér profil manuelt
     st.subheader("Redigér profil manuelt")
     edited_profile = st.text_area("Virksomhedsprofil", current_data.get("brand_profile", ""), height=200)
-    if st.button("Gem ændringer i profil", key="save_profile"):
+    if st.button("Gem ændringer i profil"):
         st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = edited_profile
         current_data["brand_profile"] = edited_profile
         save_state()
         st.success("Profil opdateret manuelt!")
 
-    # Mulighed for at redigere produktinfo manuelt
+    # Redigér produktinfo manuelt
     st.subheader("Produktinfo (manuelt)")
-    edited_product_info = st.text_area("Redigér produktinfo", current_data.get("produkt_info", ""), height=200)
-    if st.button("Gem ændringer i produktinfo", key="save_product_info"):
-        st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = edited_product_info
-        current_data["produkt_info"] = edited_product_info
+    edited_products = st.text_area("Redigér produktinfo (JSON eller tekst)", current_data.get("produkt_info", ""), height=200)
+    if st.button("Gem ændringer i produktinfo"):
+        st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = edited_products
+        current_data["produkt_info"] = edited_products
         save_state()
         st.success("Produktdata opdateret manuelt!")
 
@@ -263,7 +258,7 @@ if st.session_state["page"] == "profil":
     st.markdown("---")
     st.subheader("Ord/sætninger AI ikke må bruge")
     edited_blacklist = st.text_area("Skriv ord eller sætninger adskilt med komma:", current_data.get("blacklist", ""))
-    if st.button("Gem begrænsninger", key="save_blacklist"):
+    if st.button("Gem begrænsninger"):
         st.session_state["profiles"][st.session_state["current_profile"]]["blacklist"] = edited_blacklist
         current_data["blacklist"] = edited_blacklist
         save_state()
@@ -340,7 +335,6 @@ elif st.session_state["page"] == "seo":
                         st.session_state["generated_texts"].append(seo_text)
                     except Exception as e:
                         st.error(f"Fejl ved generering af tekst: {e}")
-            # Gem de genererede tekster
             save_state()
             
             if st.session_state["generated_texts"]:
