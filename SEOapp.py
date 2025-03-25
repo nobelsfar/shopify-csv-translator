@@ -31,7 +31,6 @@ def load_state():
         initialize_state()
 
 def save_state():
-    # Sørg for, at mappen til state-filen findes
     folder = os.path.dirname(STATE_FILE)
     if folder and not os.path.exists(folder):
         try:
@@ -153,9 +152,11 @@ if st.session_state["page"] == "profil":
     st.header("Redigér virksomhedsprofil")
     
     # Vælg profilnavn
-    current_profile_name = st.text_input("Navn på virksomhedsprofil:",
-                                         value=st.session_state["current_profile"],
-                                         key="profile_name_display")
+    current_profile_name = st.text_input(
+        "Navn på virksomhedsprofil:",
+        value=st.session_state["current_profile"],
+        key="profile_name_display"
+    )
     if current_profile_name != st.session_state["current_profile"]:
         old_name = st.session_state["current_profile"]
         if current_profile_name.strip():
@@ -163,64 +164,72 @@ if st.session_state["page"] == "profil":
             st.session_state["current_profile"] = current_profile_name
             current_data = st.session_state["profiles"][current_profile_name]
             save_state()
+
+    # NY PROMPT: Få AI til at skrive meget detaljerede produktlister
+    st.subheader("Automatisk udfyld profil (med detaljerede produkter)")
+    website_url = st.text_input("Indtast URL til en side med mange produktdetaljer:")
     
-    # Automatisk udfyld profil og produkter i samme kald
-    st.subheader("Automatisk udfyld profil (inkl. produkter)")
-    website_url = st.text_input("Indtast URL til din hjemmeside for automatisk profilgenerering:")
-    if st.button("Hent og generer profil"):
+    if st.button("Hent og generer profil + produkter"):
         if website_url:
             website_text = fetch_website_content(website_url)
             if website_text:
-                # Vi beder AI'en om at returnere JSON med to felter: virksomhedsprofil og produkter
+                # Her beder vi AI om at liste alle produkter i detaljer:
+                # 1) virksomhedsprofil (kort)
+                # 2) "produkter" i et JSON-felt - med detaljer, fx "navn", "beskrivelse", "materialer", "pris" etc.
                 prompt = (
                     "Læs hjemmesideteksten herunder og returnér et JSON-objekt med to nøgler: "
-                    "'virksomhedsprofil' og 'produkter'.\n\n"
-                    "1) 'virksomhedsprofil': Beskriv virksomhedens historie, kerneværdier og generel profil.\n"
-                    "2) 'produkter': En liste (array) med navn og kort beskrivelse af virksomhedens produkter.\n\n"
-                    "Returnér resultatet som *ren* JSON uden ekstra forklaringer:\n\n"
-                    f"{website_text[:4000]}"
+                    "'virksomhedsprofil' og 'produkter'. \n\n"
+                    "1) 'virksomhedsprofil': Giv en kort præsentation af virksomheden.\n"
+                    "2) 'produkter': En detaljeret liste (array) af produkter. Hvert produkt skal have mindst:\n"
+                    "   - navn\n"
+                    "   - kort beskrivelse\n"
+                    "   - materialer eller lignende, hvis det fremgår\n"
+                    "   - andre brugbare detaljer (pris, størrelse, brugsområder, m.v.)\n\n"
+                    "Returnér kun ren JSON uden ekstra kommentarer. Husk at medtage så mange produkter som muligt "
+                    "fra tekstgrundlaget.\n\n"
+                    f"{website_text[:8000]}"  # Vi tager fx 8000 tegn for at få så meget data som muligt
                 )
                 try:
                     response = openai.ChatCompletion.create(
                         model="gpt-4-turbo",
                         messages=[{"role": "user", "content": prompt}],
-                        max_tokens=700
+                        max_tokens=2000
                     )
                     raw_text = response.choices[0].message.content.strip()
-                    
-                    # Forsøg at parse JSON
+
                     try:
                         parsed = json.loads(raw_text)
-                        # Gem 'virksomhedsprofil' i brand_profile
                         brand_profile = parsed.get("virksomhedsprofil", "")
-                        # Gem 'produkter' i produkt_info (som string eller JSON)
-                        product_data = parsed.get("produkter", [])
-                        
-                        # Hvis 'produkter' er en liste, konverter til string
-                        if isinstance(product_data, list):
-                            product_data_str = "\n".join([f"- {p}" for p in product_data])
-                        else:
-                            # Hvis det er en streng eller andet, brug det direkte
-                            product_data_str = str(product_data)
-                        
+                        produkt_list = parsed.get("produkter", [])
+
+                        # Gemmer brand_profile
                         st.session_state["profiles"][st.session_state["current_profile"]]["brand_profile"] = brand_profile
-                        st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = product_data_str
                         current_data["brand_profile"] = brand_profile
+                        
+                        # Hvis "produkter" er en liste, gem i produkt_info (som JSON)
+                        # Du kan selv vælge, om du vil gemme den som streng
+                        if isinstance(produkt_list, list):
+                            product_data_str = json.dumps(produkt_list, ensure_ascii=False, indent=2)
+                        else:
+                            # Hvis "produkter" ikke er en liste
+                            product_data_str = str(produkt_list)
+
+                        st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = product_data_str
                         current_data["produkt_info"] = product_data_str
                         
                         save_state()
                         
-                        st.success("Virksomhedsprofil og produklist gemt i profilen!")
+                        st.success("Gemte virksomhedsprofil + produktliste i JSON-format!")
                         st.text_area("Virksomhedsprofil (fra AI)", brand_profile, height=150)
-                        st.text_area("Produkter (fra AI)", product_data_str, height=150)
+                        st.text_area("Produkter (fra AI)", product_data_str, height=200)
                     
-                    except Exception as json_err:
-                        st.error("Kunne ikke parse JSON-svaret. Her er hele AI-svaret:")
-                        st.text_area("AI-svar", raw_text, height=300)
+                    except Exception as parse_err:
+                        st.error("Kunne ikke parse JSON-svaret fra AI. Her er hele AI-svaret:")
+                        st.text_area("AI-svar", raw_text, height=400)
                 except Exception as e:
-                    st.error(f"Fejl ved generering af virksomhedsprofil: {e}")
+                    st.error(f"Fejl ved kald til OpenAI: {e}")
         else:
-            st.warning("Indtast venligst en gyldig URL.")
+            st.warning("Indtast venligst en gyldig URL!")
 
     # Redigér profiltekst manuelt
     st.subheader("Redigér profil manuelt")
@@ -239,22 +248,22 @@ if st.session_state["page"] == "profil":
         st.success("Begrænsninger gemt!")
     
     st.markdown("---")
-    st.subheader("Upload eller indsæt produktdata")
+    st.subheader("Upload eller indsæt produktdata manuelt")
     st.info("Upload en CSV, Excel eller PDF-fil med produktdata. Denne information gemmes under din profil.")
-    produkt_data = st.file_uploader("Upload CSV, Excel eller PDF",
-                                    type=["csv", "xlsx", "pdf"],
-                                    key=f"produkt_upload_{st.session_state['current_profile']}")
-    if produkt_data:
-        st.write(f"🔄 Fil uploadet: {produkt_data.name}")
+    produkt_data_file = st.file_uploader("Upload CSV, Excel eller PDF",
+                                         type=["csv", "xlsx", "pdf"],
+                                         key=f"produkt_upload_{st.session_state['current_profile']}")
+    if produkt_data_file:
+        st.write(f"🔄 Fil uploadet: {produkt_data_file.name}")
         extracted = ""
-        if produkt_data.name.endswith(".csv"):
-            df = pd.read_csv(produkt_data)
+        if produkt_data_file.name.endswith(".csv"):
+            df = pd.read_csv(produkt_data_file)
             extracted = df.to_string(index=False)
-        elif produkt_data.name.endswith(".xlsx"):
-            df = pd.read_excel(produkt_data)
+        elif produkt_data_file.name.endswith(".xlsx"):
+            df = pd.read_excel(produkt_data_file)
             extracted = df.to_string(index=False)
-        elif produkt_data.name.endswith(".pdf"):
-            reader = PyPDF2.PdfReader(produkt_data)
+        elif produkt_data_file.name.endswith(".pdf"):
+            reader = PyPDF2.PdfReader(produkt_data_file)
             for page in reader.pages:
                 extracted += page.extract_text()
         st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = extracted
