@@ -1,52 +1,80 @@
 import streamlit as st
+import pandas as pd
 import openai
+import base64
+from PIL import Image
+import io
 
-st.set_page_config(page_title="SEO Tekstgenerator", layout="wide")
-st.title("SEO Tekstgenerator med AI")
+st.title("Avanceret SEO Tekstgenerator")
 
-# API-nøgle input (kan senere gemmes i session_state)
-api_key = st.text_input("Indtast din OpenAI API-nøgle:", type="password")
+api_key = st.text_input("OpenAI API-nøgle", type="password")
 
 if api_key:
     client = openai.OpenAI(api_key=api_key)
 
-    with st.form("seo_form"):
-        seo_keyword = st.text_input("Primært søgeord")
-        emne = st.text_input("Emne")
-        tone = st.selectbox("Tone-of-voice", ["Professionel", "Informativ", "Salg", "Venlig", "Humoristisk"])
-        undgaa = st.text_area("Ord/sætninger, der skal undgås (adskil med komma)")
-        laengde = st.number_input("Ønsket længde (antal ord)", min_value=50, max_value=2000, value=300)
-        
-        submitted = st.form_submit_button("Generér tekst")
+    # Upload produktdata
+    uploaded_csv = st.file_uploader("Upload produktdata (CSV)", type=["csv"])
+    if uploaded_csv:
+        product_df = pd.read_csv(uploaded_csv)
+        st.success("Produktdata indlæst!")
 
-    if submitted:
-        undgaa_prompt = f"Undgå følgende ord eller sætninger: {undgaa}." if undgaa.strip() else ""
-        prompt = (
-            f"Skriv en SEO-optimeret tekst på dansk med det primære søgeord '{seo_keyword}'. "
-            f"Emnet er '{emne}'. Teksten skal have en '{tone}' tone-of-voice og være omkring {laengde} ord. "
-            f"{undgaa_prompt} Sørg for, at teksten er naturlig og engagerende."
-        )
+    # Upload billeder
+    uploaded_images = st.file_uploader("Upload produktbilleder", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
+
+    # Virksomhedens DNA
+    brand_dna = st.text_area("Beskriv virksomhedens DNA, værdier, stil og målgruppe:")
+
+    seo_keyword = st.text_input("Primært SEO-søgeord")
+    emne = st.text_input("Emne for teksten")
+    tone = st.selectbox("Tone-of-voice", ["Professionel", "Informativ", "Inspirerende", "Humoristisk", "Salg"])
+
+    if st.button("Generér SEO-tekst"):
+        prompt = f"Skriv en SEO-optimeret tekst om '{emne}' med søgeordet '{seo_keyword}'. Tone: {tone}. Virksomhedens DNA: {brand_dna}."
+
+        if uploaded_csv:
+            product_info = product_df.head(3).to_dict(orient='records')
+            prompt += f" Produktinformation: {product_info}."
+
+        if uploaded_images:
+            image_descriptions = []
+            for img in uploaded_images:
+                img_bytes = img.getvalue()
+                img_base64 = base64.b64encode(img_bytes).decode()
+
+                # OpenAI Vision API kan analysere billeder
+                vision_response = client.chat.completions.create(
+                    model="gpt-4-vision-preview",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": "Beskriv billedet i korte og præcise termer til brug i produktbeskrivelse."},
+                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"}}
+                            ]
+                        }
+                    ],
+                    max_tokens=100
+                )
+                image_descriptions.append(vision_response.choices[0].message.content.strip())
+            
+            prompt += f" Billedbeskrivelser: {image_descriptions}."
 
         try:
+            # Generér tekst fra samlet data
             response = client.chat.completions.create(
                 model="gpt-4-turbo",
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1000
             )
-            seo_tekst = response.choices[0].message.content.strip()
-            
-            st.subheader("Genereret SEO-tekst")
-            edited_text = st.text_area("Tilpas teksten her:", seo_tekst, height=400)
-            
-            if st.button("Download tekst"):
-                st.download_button(
-                    label="Download SEO-tekst",
-                    data=edited_text,
-                    file_name="seo_tekst.txt",
-                    mime="text/plain"
-                )
+            seo_text = response.choices[0].message.content.strip()
 
+            st.subheader("Genereret SEO-tekst")
+            edited_text = st.text_area("Tilpas teksten yderligere her:", seo_text, height=400)
+
+            if st.download_button("Download SEO-tekst", edited_text, "seo_text.txt"):
+                st.success("SEO-tekst downloadet!")
         except Exception as e:
-            st.error(f"Der opstod en fejl: {e}")
+            st.error(f"Fejl under generering: {e}")
 
 else:
-    st.info("Indtast din OpenAI API-nøgle for at starte.")
+    st.info("Indtast API-nøglen for at bruge appen.")
