@@ -52,6 +52,11 @@ if user_input:
     with st.chat_message("assistant"):
         st.markdown(reply)
 
+    # Når AI har givet nok info, gem det som profil
+    if "brand_profile" not in st.session_state and len(st.session_state["chat_history"]) > 5:
+        st.session_state["brand_profile"] = reply
+        st.success("Virksomhedsprofil genereret fra chat!")
+
 # Mulighed for upload i stedet for chat
 with st.expander("⬆️ Eller upload filer med virksomhedsdata"):
     uploaded_file = st.file_uploader("Upload CSV, Excel eller PDF", type=["csv", "xlsx", "pdf"])
