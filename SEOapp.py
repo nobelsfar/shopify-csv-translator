@@ -12,6 +12,11 @@ if "page" not in st.session_state:
     st.session_state["page"] = "seo"
 if "generated_texts" not in st.session_state:
     st.session_state["generated_texts"] = []
+if "profiles" not in st.session_state:
+    st.session_state["profiles"] = {}
+if "current_profile" not in st.session_state:
+    st.session_state["current_profile"] = "Standard profil"
+    st.session_state["generated_texts"] = []
 
 st.title("📝 Skriv SEO-tekster med AI")
 
@@ -33,24 +38,39 @@ if st.sidebar.button("Redigér virksomhedsprofil"):
     st.session_state["page"] = "profil"
 
 st.sidebar.markdown("---")
-st.sidebar.header("Virksomhedsprofil")
-if "brand_profile" in st.session_state and st.session_state["brand_profile"].strip():
+st.sidebar.header("Virksomhedsprofiler")
+
+profile_names = list(st.session_state["profiles"].keys())
+selected_profile = st.sidebar.selectbox("Vælg profil", options=["Standard profil"] + profile_names)
+
+if st.sidebar.button("Opret ny profil"):
+    new_profile_name = f"Ny profil {len(profile_names) + 1}"
+    st.session_state["profiles"][new_profile_name] = {"brand_profile": "", "blacklist": "", "produkt_info": ""}
+    st.session_state["current_profile"] = new_profile_name
+    st.experimental_rerun()
+
+if selected_profile != st.session_state["current_profile"]:
+    st.session_state["current_profile"] = selected_profile
+    st.experimental_rerun()
+
+current_data = st.session_state["profiles"].get(st.session_state["current_profile"], {"brand_profile": "", "blacklist": "", "produkt_info": ""})
+if "brand_profile" in st.session_state and current_data["brand_profile"].strip():
     st.sidebar.markdown(st.session_state["brand_profile"])
 else:
     st.sidebar.info("Ingen virksomhedsprofil fundet endnu.")
 
 if st.session_state["page"] == "profil":
     st.subheader("Rediger virksomhedsprofil")
-    profil_tekst = st.text_area("Redigér profil her:", st.session_state.get("brand_profile", ""), height=200)
+    profil_tekst = st.text_area("Redigér profil her:", current_data.get("brand_profile", ""), height=200)
     if st.button("Gem ændringer"):
         st.session_state["brand_profile"] = profil_tekst
         st.success("Profil opdateret!")
 
     st.markdown("---")
     st.subheader("Ord/sætninger AI ikke må bruge")
-    blacklist = st.text_area("Skriv ord eller sætninger adskilt med komma:", st.session_state.get("blacklist", ""))
+    blacklist = st.text_area("Skriv ord eller sætninger adskilt med komma:", current_data.get("blacklist", ""))
     if st.button("Gem begrænsninger"):
-        st.session_state["blacklist"] = blacklist
+        current_data["blacklist"] = blacklist
         st.success("Begrænsninger gemt!")
 
     st.markdown("---")
@@ -58,38 +78,7 @@ if st.session_state["page"] == "profil":
     if 'produkt_data' not in st.session_state:
         st.session_state['produkt_data'] = None
 
-    produkt_data = st.file_uploader("Upload CSV, Excel eller PDF", type=["csv", "xlsx", "pdf"], key="produkt_upload")
-    if produkt_data:
-        st.session_state['produkt_data'] = produkt_data
-    elif st.session_state['produkt_data']:
-        produkt_data = st.session_state['produkt_data']
-    if produkt_data:
-        st.write(f"🔄 Fil uploadet: {produkt_data.name}")
-        extracted = ""
-        if produkt_data.name.endswith(".csv"):
-            df = pd.read_csv(produkt_data)
-            extracted = df.to_string(index=False)
-            st.session_state['produkt_info'] = extracted
-        elif produkt_data.name.endswith(".xlsx"):
-            df = pd.read_excel(produkt_data)
-            extracted = df.to_string(index=False)
-            st.session_state['produkt_info'] = extracted
-        elif produkt_data.name.endswith(".pdf"):
-            reader = PyPDF2.PdfReader(produkt_data)
-            for page in reader.pages:
-                extracted += page.extract_text()
-            st.session_state['produkt_info'] = extracted
-
-        st.text_area("Produktinformation:", extracted, height=200)
-
-elif st.session_state["page"] == "seo":
-    if "brand_profile" in st.session_state and st.session_state["brand_profile"].strip():
-        st.subheader("Generér SEO-tekst")
-        seo_keyword = st.text_input("SEO søgeord/emne for tekst")
-        tone = st.selectbox("Tone-of-voice", ["Professionel", "Venlig", "Eksklusiv", "Teknisk", "Inspirerende", "Neutral", "Kreativ"], index=0)
-        laengde = st.number_input("Ønsket tekstlængde (ord)", min_value=100, max_value=1500, value=300)
-
-        col1, col2 = st.columns([3, 1])
+    produkt_data = st.file_uploader("Upload CSV, Excel eller PDF", type=["csv", "xlsx", "pdf"], key=f"produkt_upload_{st.session_state['current_profile']}")
         with col1:
             generate = st.button("Generér SEO-tekst")
         with col2:
