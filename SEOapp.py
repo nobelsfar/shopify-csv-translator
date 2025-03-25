@@ -176,7 +176,7 @@ if st.session_state["page"] == "profil":
                     "baseret på følgende hjemmesideindhold:\n\n" + website_text
                 )
                 try:
-                    response = client.ChatCompletion.create(
+                    response = openai.ChatCompletion.create(
                         model="gpt-4-turbo",
                         messages=[{"role": "user", "content": prompt}],
                         max_tokens=500
@@ -274,7 +274,7 @@ if st.session_state["page"] == "seo":
                         seo_prompt += f" Undgå følgende ord eller sætninger: {current_data['blacklist']}."
                     
                     try:
-                        seo_response = client.ChatCompletion.create(
+                        seo_response = openai.ChatCompletion.create(
                             model="gpt-4-turbo",
                             messages=[{"role": "user", "content": seo_prompt}],
                             max_tokens=laengde * 2
