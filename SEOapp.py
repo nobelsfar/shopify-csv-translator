@@ -1,10 +1,12 @@
 import streamlit as st
+st.set_page_config(page_title="AI-assisteret SEO generator", layout="wide")
+
+import os
 import openai
 import pandas as pd
 import PyPDF2
 import io
 import json
-import os
 
 # Definer stien til state-filen. På Streamlit Cloud kan du bruge /mnt/data.
 STATE_FILE = "/mnt/data/state.json"
@@ -24,6 +26,8 @@ def load_state():
         initialize_state()
 
 def save_state():
+    # Sørg for, at mappen til state-filen findes
+    os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
     state = {
         "profiles": st.session_state.get("profiles", {}),
         "api_key": st.session_state.get("api_key", ""),
@@ -47,8 +51,6 @@ def initialize_state():
 
 # Indlæs eller initialiser state ved app-start
 load_state()
-
-st.set_page_config(page_title="AI-assisteret SEO generator", layout="wide")
 
 # API-nøgle input
 if not st.session_state["api_key"]:
