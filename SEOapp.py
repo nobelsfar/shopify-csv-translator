@@ -16,6 +16,9 @@ if "generated_texts" not in st.session_state:
     st.session_state["generated_texts"] = []
 if "profiles" not in st.session_state:
     st.session_state["profiles"] = {}
+if "rerun_flag" not in st.session_state:
+    st.session_state["rerun_flag"] = False
+
 if "current_profile" not in st.session_state:
     st.session_state["current_profile"] = "Standard profil"
     st.session_state["generated_texts"] = []
@@ -56,7 +59,8 @@ if st.sidebar.button("Opret ny profil"):
 
 if selected_profile != st.session_state["current_profile"]:
     st.session_state["current_profile"] = selected_profile
-    st.experimental_rerun()
+    st.session_state["rerun_flag"] = True
+                        st.stop()
 
 current_data = st.session_state["profiles"].get(st.session_state["current_profile"], {"brand_profile": "", "blacklist": "", "produkt_info": ""})
 if "brand_profile" in st.session_state and current_data["brand_profile"].strip():
