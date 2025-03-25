@@ -110,7 +110,7 @@ if st.session_state.get("delete_profile"):
                 st.session_state["current_profile"] = "Standard profil"
             st.session_state["delete_profile"] = None
             save_state()
-            st.experimental_rerun()
+            # Vi fjerner st.experimental_rerun() her for at undgå fejl.
     with col_cancel:
         if st.button("Nej, annuller"):
             st.session_state["delete_profile"] = None
