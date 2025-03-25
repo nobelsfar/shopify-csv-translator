@@ -136,8 +136,8 @@ if st.session_state["page"] == "profil":
                 produkt_info = st.session_state.get('produkt_info', '')
                 seo_prompt = (
                     f"Skriv en SEO-optimeret tekst på dansk om '{seo_keyword}'. "
-                    f"Brug følgende virksomhedsprofil som reference: {st.session_state['brand_profile']}. "
-                    f"Brug også følgende produktinformation: {produkt_info}. "
+                    f"Brug følgende virksomhedsprofil som reference: {current_data.get('brand_profile', '')}. "
+                    f"Brug også følgende produktinformation: {current_data.get('produkt_info', '')}. "
                     f"Strukturer teksten med SEO-venlige overskrifter (h1, h2, h3) og brug relevante nøgleord i overskrifterne. "
                     f"Teksten skal være cirka {laengde} ord lang."
                 )
@@ -145,8 +145,8 @@ if st.session_state["page"] == "profil":
                 if tone:
                     seo_prompt += f" Teksten skal have en '{tone}' tone-of-voice."
 
-                if "blacklist" in st.session_state and st.session_state["blacklist"].strip():
-                    seo_prompt += f" Undgå følgende ord eller sætninger i teksten: {st.session_state['blacklist']}."
+                if current_data.get("blacklist", "").strip():
+                    seo_prompt += f" Undgå følgende ord eller sætninger i teksten: {current_data['blacklist']}."
 
                 seo_response = client.chat.completions.create(
                     model="gpt-4-turbo",
