@@ -156,12 +156,7 @@ if st.session_state["page"] == "seo":
     st.subheader("Virksomhedsprofil")
     st.markdown(current_data.get("brand_profile", "Ingen profiltekst fundet."))
     
-    # Vis produktdata, hvis der findes
-    st.subheader("Produktdata")
-    if current_data.get("produkt_info", "").strip():
-        st.markdown(current_data.get("produkt_info", ""))
-    else:
-        st.info("Ingen produktdata fundet. Tilføj produktdata under 'Redigér virksomhedsprofil'.")
+    # Bemærk: Produktdata vises ikke her, men hentes stadig fra profilen til prompten.
     
     # Inputfelter for SEO-parametre
     seo_keyword = st.text_input("Søgeord / Emne", value="")
