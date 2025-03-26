@@ -133,22 +133,18 @@ def automatically_enrich_product_text(raw_text):
             max_tokens=3000
         )
         enriched = r2.choices[0].message.content.strip()
-        # Fjern "Produktbeskrivelse for "
         enriched = enriched.replace("Produktbeskrivelse for ", "")
-        # Fjern ### overskrifter
         enriched = re.sub(r'^###\s+(.*)$', r'\1', enriched, flags=re.MULTILINE)
         return enriched
     except Exception as e:
         st.error(f"Fejl ved berigelse: {e}")
         return raw_text
 
-# Iterativ ord-længde approach
 def count_words(txt):
     return len(txt.split())
 
 def generate_iterative_seo_text(base_prompt, min_len=700, max_tries=3):
     final_text = ""
-    # Første kald
     resp = openai.ChatCompletion.create(
         model="gpt-4-turbo",
         messages=[{"role": "user", "content": base_prompt}],
@@ -184,9 +180,6 @@ def generate_iterative_seo_text(base_prompt, min_len=700, max_tries=3):
     return final_text
 
 def check_blacklist_and_rewrite(text, blacklist_words, max_tries=2):
-    """
-    Finder blacklisted ord, hvis nogen, bed GPT genskrive uden dem.
-    """
     if not blacklist_words.strip():
         return text
 
@@ -203,13 +196,11 @@ def check_blacklist_and_rewrite(text, blacklist_words, max_tries=2):
     for attempt in range(max_tries):
         if not contains_blacklist(final_text):
             break
-        # Find de forbudte ord
         found = []
         low = final_text.lower()
         for w in words_list:
             if w in low:
                 found.append(w)
-        # Bed GPT om at genskrive teksten uden de fundne ord
         rewrite_prompt = (
             f"Nogle forbudte ord blev brugt: {found}. Fjern eller omformuler dem, "
             "uden at forkorte teksten væsentligt:\n\n"
@@ -308,7 +299,6 @@ if st.session_state["page"] == "profil":
                 if page_txt:
                     all_content += f"\n\n=== KILDE: {line} ===\n{page_txt}"
         if all_content.strip():
-            # Samlet prompt
             brand_prompt = (
                 "Her er tekst fra flere links. Lav en fyldig virksomhedsprofil "
                 "uden at nævne 'bæredygtighed'. Returnér KUN selve profilteksten.\n\n"
@@ -364,7 +354,6 @@ if st.session_state["page"] == "profil":
             else:
                 st.warning("Ingen tekst at berige.")
 
-    # Rediger virksomhedsprofil manuelt
     st.subheader("Virksomhedsprofil (manuel redigering)")
     brand_man = st.text_area("Indtast eller rediger virksomhedsprofil", cur_data.get("brand_profile", ""), height=100)
     if st.button("Gem virksomhedsprofil (manuel)"):
@@ -376,14 +365,18 @@ if st.session_state["page"] == "profil":
     # --- Nyt blacklist-felt ---
     st.subheader("Blacklist (forbudte ord)")
     default_blacklist = cur_data.get("blacklist") or ""
-    blacklist_text = st.text_area("Indtast kommaseparerede ord, der ikke må indgå i SEO-teksten.", default_blacklist, height=50)
-    if st.button("Gem blacklist"):
+    blacklist_text = st.text_area(
+        "Indtast kommaseparerede ord, der ikke må indgå i SEO-teksten.",
+        value=default_blacklist,
+        height=50,
+        key="blacklist_text"
+    )
+    if st.button("Gem blacklist", key="gem_blacklist"):
         st.session_state["profiles"][st.session_state["current_profile"]]["blacklist"] = blacklist_text
         cur_data["blacklist"] = blacklist_text
         save_state()
         st.success("Blacklist gemt")
 
-    # Rediger produktinfo manuelt
     st.subheader("Produktinfo (manuel)")
     prod_man = st.text_area("Indtast eller rediger produktinfo", cur_data.get("produkt_info", ""), height=150)
     if st.button("Gem produktinfo (manuel)"):
@@ -476,11 +469,8 @@ elif st.session_state["page"] == "seo":
 
                     blacklist_words = data.get("blacklist", "")
 
-                    # 1) generér iterativ => min. ord
                     draft = generate_iterative_seo_text(base_prompt, min_len=min_len, max_tries=3)
-                    # 2) fjerne "### "
                     draft = draft.replace("### ", "")
-                    # 3) check blacklist => rewrite
                     final_txt = check_blacklist_and_rewrite(draft, blacklist_words, max_tries=2)
 
                     st.session_state["generated_texts"].append(final_txt)
@@ -498,7 +488,6 @@ elif st.session_state["page"] == "seo":
                         else:
                             st.text_area("Ren tekst", doc, height=500)
 
-                        # Download-knap
                         file_end = ".txt"
                         mime_t = "text/plain"
                         if out_fmt == "HTML":
@@ -513,7 +502,6 @@ elif st.session_state["page"] == "seo":
                             file_name=f"seo_{idx+1}{file_end}",
                             mime=mime_t
                         )
-                        # Sletteknap
                         if st.button(f"Slet tekst {idx+1}", key=f"del_{idx}"):
                             st.session_state["generated_texts"].pop(idx)
                             save_state()
