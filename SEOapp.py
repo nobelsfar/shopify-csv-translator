@@ -363,13 +363,11 @@ if st.session_state["page"] == "profil":
     
     # --- Nyt blacklist-felt ---
     st.subheader("Blacklist (forbudte ord)")
-    default_blacklist = cur_data.get("blacklist", "")
-    if default_blacklist is None:
-        default_blacklist = ""
+    default_blacklist = str(cur_data.get("blacklist") or "")
     blacklist_text = st.text_area(
         "Indtast kommaseparerede ord, der ikke må indgå i SEO-teksten.",
         value=default_blacklist,
-        height=50
+        height=68  # Ændret fra 50 til 68 pixels
     )
     if st.button("Gem blacklist"):
         st.session_state["profiles"][st.session_state["current_profile"]]["blacklist"] = blacklist_text
