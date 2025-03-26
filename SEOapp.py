@@ -1,4 +1,8 @@
 import streamlit as st
+
+# VIGTIGT: set_page_config SKAL være første Streamlit-kald
+st.set_page_config(page_title="AI-assisteret SEO generator", layout="wide")
+
 import os
 import openai
 import pandas as pd
@@ -6,7 +10,7 @@ import PyPDF2
 import io
 import json
 import requests
-import re  # Bruges til regex
+import re
 from bs4 import BeautifulSoup
 
 # Vælg korrekt state-fil sti (Streamlit Cloud / lokalt)
@@ -62,7 +66,6 @@ def initialize_state():
 
 load_state()
 
-# Hvis ingen API-nøgle, bed brugeren om den
 if not st.session_state.get("api_key"):
     key_in = st.text_input("Indtast OpenAI API-nøgle", type="password")
     if key_in:
@@ -71,13 +74,7 @@ if not st.session_state.get("api_key"):
     else:
         st.stop()
 
-# Sæt openai nøgle
-import openai
 openai.api_key = st.session_state["api_key"]
-
-st.set_page_config(page_title="AI-assisteret SEO generator", layout="wide")
-
-# --- Hjælpefunktioner ---
 
 def fetch_website_content(url):
     """Henter rå tekst fra en URL og fjerner script/style."""
@@ -129,18 +126,17 @@ def fetch_product_text_raw(url):
 
 def automatically_enrich_product_text(raw_text):
     """
-    Kalder GPT for at strukturere og let udvide produkt-teksten, 
-    uden separate knapper. Undgår store overskrifter, 
-    fjerner 'Produktbeskrivelse for', 
-    og erstatter eventuelle ### med **.
+    Kalder GPT for at strukturere og let udvide produkt-teksten,
+    uden separate knapper. Undgår '###' overskrifter, 
+    og fjerner 'Produktbeskrivelse for '.
     """
     if not raw_text.strip():
         return ""
     prompt=(
         "Du får her en rå produkttekst. Strukturer og berig den let (tilføj evt. manglende data), "
-        "men undgå store markdown-overskrifter (###). Brug i stedet fed skrift med **. "
-        "Fjern 'Produktbeskrivelse for' hvis det findes. "
-        "Undgå at ændre for meget i ordlyden.\n\n"
+        "men undgå store markdown-overskrifter (###). Brug i stedet fed skrift **. "
+        "Fjern 'Produktbeskrivelse for ' hvis det findes, "
+        "og undgå at ændre for meget i ordlyden.\n\n"
         f"{raw_text[:15000]}"
     )
     try:
@@ -157,7 +153,7 @@ def automatically_enrich_product_text(raw_text):
         return enriched
     except Exception as e:
         st.error(f"Fejl ved berigelse: {e}")
-        return raw_text  # fallback: return original
+        return raw_text  # fallback
 
 # --- Sidebar Navigation ---
 st.sidebar.header("Navigation")
@@ -214,7 +210,6 @@ if cur_data.get("brand_profile","").strip():
 else:
     st.sidebar.info("Ingen virksomhedsprofil fundet endnu.")
 
-# --- Hovedvisning ---
 if not st.session_state.get("page"):
     st.session_state["page"] = "profil"
     save_state()
@@ -223,7 +218,7 @@ if not st.session_state.get("page"):
 if st.session_state["page"]=="profil":
     st.header("Redigér virksomhedsprofil")
 
-    current_profile_name = st.text_input("Navn på virksomhedsprofil", 
+    current_profile_name = st.text_input("Navn på virksomhedsprofil",
                                          value=st.session_state["current_profile"])
     if current_profile_name != st.session_state["current_profile"]:
         old_name = st.session_state["current_profile"]
@@ -264,8 +259,8 @@ if st.session_state["page"]=="profil":
         else:
             st.warning("Angiv en URL.")
 
-    # --- Hent rå produkttekster (automatisk beriget)
-    st.subheader("Hent produkttekster (automatisk beriget, ingen ekstra knap)")
+    # --- Hent produkttekster (automatisk beriget)
+    st.subheader("Hent produkttekster (automatisk beriget)")
     coll_url = st.text_input("URL til kollektion (fx https://noyer.dk/collections/all)")
 
     if st.button("Hent produktlinks"):
@@ -284,17 +279,15 @@ if st.session_state["page"]=="profil":
             if val:
                 chosen.append(link)
 
-        # Her fjerner vi den separate "Berig"-knap – alt sker i samme handling
+        # Alt sker her, ingen separat berig-knap
         if st.button("Hent tekst (og berig) fra valgte produkter"):
             big_raw=""
             for c_link in chosen:
                 raw_prod_txt = fetch_product_text_raw(c_link)
-                # Saml i en stor streng
                 big_raw += f"\n\n=== PRODUKT ===\n{c_link}\n{raw_prod_txt}"
 
-            # Kald GPT for at "berige" alt på én gang
             if big_raw.strip():
-                # Kald helper-funktion
+                # Kald GPT for at "berige"
                 enriched_text = automatically_enrich_product_text(big_raw)
                 st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = enriched_text
                 cur_data["produkt_info"] = enriched_text
@@ -346,14 +339,13 @@ if st.session_state["page"]=="profil":
         elif upf.name.endswith(".pdf"):
             reader=PyPDF2.PdfReader(upf)
             for page in reader.pages:
-                ex += page.extract_text()
+                ex+=page.extract_text()
         st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"]=ex
         cur_data["produkt_info"]=ex
         save_state()
         st.success("Data gemt fra fil.")
 
-
-# --- SEO PAGE ---
+# -- SEO PAGE --
 elif st.session_state["page"]=="seo":
     st.header("Generér SEO-tekst")
     data = st.session_state["profiles"].get(
