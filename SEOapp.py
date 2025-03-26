@@ -13,7 +13,7 @@ import requests
 import re
 from bs4 import BeautifulSoup
 
-# Vælg correct state-file
+# Vælg korrekt state-fil
 if os.path.exists("/mnt/data") and os.access("/mnt/data", os.W_OK):
     STATE_FILE = "/mnt/data/state.json"
 else:
@@ -338,7 +338,6 @@ if st.session_state["page"] == "profil":
             cv = st.checkbox(lnk, key=f"cb_{i}", value=True)
             if cv:
                 chosen.append(lnk)
-
         if st.button("Hent valgte (auto-berig)"):
             big_raw = ""
             for c_link in chosen:
@@ -364,12 +363,12 @@ if st.session_state["page"] == "profil":
     
     # --- Nyt blacklist-felt ---
     st.subheader("Blacklist (forbudte ord)")
-    default_blacklist = cur_data.get("blacklist") or ""
+    default_blacklist = str(cur_data.get("blacklist") or "")
     blacklist_text = st.text_area(
         "Indtast kommaseparerede ord, der ikke må indgå i SEO-teksten.",
         value=default_blacklist,
         height=50,
-        key="blacklist_text"
+        key="blacklist_field"
     )
     if st.button("Gem blacklist", key="gem_blacklist"):
         st.session_state["profiles"][st.session_state["current_profile"]]["blacklist"] = blacklist_text
