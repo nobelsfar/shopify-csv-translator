@@ -22,7 +22,7 @@ else:
 def load_state():
     if os.path.exists(STATE_FILE):
         try:
-            with open(STATE_FILE,"r") as f:
+            with open(STATE_FILE, "r") as f:
                 s = json.load(f)
             for k, v in s.items():
                 st.session_state[k] = v
@@ -203,7 +203,7 @@ def check_blacklist_and_rewrite(text, blacklist_words, max_tries=2):
     for attempt in range(max_tries):
         if not contains_blacklist(final_text):
             break
-        # find de forbudte ord
+        # Find de forbudte ord
         found = []
         low = final_text.lower()
         for w in words_list:
@@ -375,7 +375,8 @@ if st.session_state["page"] == "profil":
     
     # --- Nyt blacklist-felt ---
     st.subheader("Blacklist (forbudte ord)")
-    blacklist_text = st.text_area("Indtast kommaseparerede ord, der ikke må indgå i SEO-teksten.", cur_data.get("blacklist", ""), height=50)
+    default_blacklist = cur_data.get("blacklist") or ""
+    blacklist_text = st.text_area("Indtast kommaseparerede ord, der ikke må indgå i SEO-teksten.", default_blacklist, height=50)
     if st.button("Gem blacklist"):
         st.session_state["profiles"][st.session_state["current_profile"]]["blacklist"] = blacklist_text
         cur_data["blacklist"] = blacklist_text
