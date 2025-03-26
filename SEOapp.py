@@ -269,6 +269,36 @@ if st.session_state["page"] == "profil":
             st.success("Rå tekst er gemt i produkt_info.")
             st.text_area("Rå tekst", big_raw, height=300)
 
+    # 4) Ny sektion: "Berig" produktinfo med AI
+    st.subheader("Berig produktinfo med AI – men undgå at ændre for meget")
+    if st.button("Berig produktinfo"):
+        raw_products = current_data.get("produkt_info", "")
+        if raw_products.strip():
+            prompt = (
+                "Du får her en rå produkttekst fra en hjemmeside. "
+                "Strukturer og berig den med evt. manglende oplysninger (fx mål, materialer, farver) "
+                "hvis det fremgår af sammenhængen, men lad selve ordene i teksten være næsten uændret. "
+                "Tilføj kun nye afsnit eller punktopstillinger, hvis det ikke ødelægger originalordlyden.\n\n"
+                f"{raw_products[:15000]}"
+            )
+            try:
+                resp = openai.ChatCompletion.create(
+                    model="gpt-4-turbo",
+                    messages=[{"role":"user","content":prompt}],
+                    max_tokens=3000
+                )
+                enriched = resp.choices[0].message.content.strip()
+                # Gem det berigede i produkt_info
+                st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = enriched
+                current_data["produkt_info"] = enriched
+                save_state()
+                st.success("Produktinfo er nu let beriget!")
+                st.text_area("Beriget produktinfo:", enriched, height=300)
+            except Exception as e:
+                st.error(f"Fejl ved AI-berigelse: {e}")
+        else:
+            st.warning("Ingen rå produktinfo at berige. Hent først produkttekst.")
+
     # Manuelle felter
     st.subheader("Redigér profil manuelt")
     brand_txt = st.text_area("Virksomhedsprofil:", current_data.get("brand_profile", ""), height=150)
@@ -278,8 +308,8 @@ if st.session_state["page"] == "profil":
         save_state()
         st.success("Profil opdateret manuelt.")
 
-    st.subheader("Redigér produktinfo (rå tekst)")
-    prod_txt = st.text_area("Produktinfo (rå):", current_data.get("produkt_info", ""), height=150)
+    st.subheader("Redigér produktinfo (rå/beriget tekst)")
+    prod_txt = st.text_area("Produktinfo:", current_data.get("produkt_info", ""), height=150)
     if st.button("Gem ændringer i produktinfo"):
         st.session_state["profiles"][st.session_state["current_profile"]]["produkt_info"] = prod_txt
         current_data["produkt_info"] = prod_txt
@@ -346,7 +376,7 @@ elif st.session_state["page"] == "seo":
                         "Skriv overskrifter på normal dansk (ikke Title Case). "
                         "Du må ikke nævne 'bæredygtighed' eller 'bæredygtig'. "
                         f"Brug følgende virksomhedsprofil: {data.get('brand_profile','')}. "
-                        f"Brug også følgende rå produktinfo: {data.get('produkt_info','')}. "
+                        f"Brug også følgende rå/berigede produktinfo: {data.get('produkt_info','')}. "
                         f"Inkluder en meta-titel, meta-beskrivelse og relevante nøgleord i overskrifter. "
                         f"Teksten skal være ca. {laengde} ord."
                     )
