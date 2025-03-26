@@ -232,9 +232,9 @@ if st.session_state["page"]=="profil":
             save_state()
 
     # AI brandprofil (uden bæredygtighed)
-    st.subheader("Hent AI-genereret virksomhedsprofil")
+    st.subheader("Automatisk virksomhedsprofil")
     url_profile = st.text_input("URL til fx 'Om os'")
-    if st.button("Generér brandprofil (uden bæredygtighed)"):
+    if st.button("Generér brandprofil"):
         if url_profile:
             rawp = fetch_website_content(url_profile)
             if rawp:
@@ -265,7 +265,7 @@ if st.session_state["page"]=="profil":
     # Hent produktlinks -> automatisk beriget
     st.subheader("Hent produktinfo (automatisk)")
 
-    col_url = st.text_input("URL til kollektion (fx noyer.dk/collections/all)")
+    col_url = st.text_input("URL til kollektion (fx https://******.com/collections/all)")
     if st.button("Hent links"):
         if col_url.strip():
             linklist = fetch_product_links(col_url.strip())
