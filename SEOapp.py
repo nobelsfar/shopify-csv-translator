@@ -147,7 +147,7 @@ def generate_iterative_seo_text(base_prompt, min_len=700, max_tries=3):
     resp = openai.ChatCompletion.create(
         model="gpt-4-turbo",
         messages=[{"role": "user", "content": base_prompt}],
-        max_tokens=min_len * 2
+        max_tokens=min_len * 3  # Øget fra *2 til *3
     )
     text_draft = resp.choices[0].message.content.strip()
     wcount = count_words(text_draft)
@@ -166,7 +166,7 @@ def generate_iterative_seo_text(base_prompt, min_len=700, max_tries=3):
             r2 = openai.ChatCompletion.create(
                 model="gpt-4-turbo",
                 messages=[{"role": "user", "content": ext_prompt}],
-                max_tokens=min_len * 2
+                max_tokens=min_len * 3  # Øget fra *2 til *3
             )
             new_text = r2.choices[0].message.content.strip()
             w2 = count_words(new_text)
@@ -208,12 +208,12 @@ def check_blacklist_and_rewrite(text, blacklist_words, max_tries=2):
         r3 = openai.ChatCompletion.create(
             model="gpt-4-turbo",
             messages=[{"role": "user", "content": rewrite_prompt}],
-            max_tokens=len(final_text.split()) * 2
+            max_tokens=max(300, len(final_text.split()) * 4)  # Øget fra *3 til *4
         )
         final_text = r3.choices[0].message.content.strip()
     return final_text
 
-# --- NYE FUNKTIONER TIL MULTI-AGENT PROCESSEN ---
+# -- NYE FUNKTIONER TIL MULTI-AGENT PROCESSEN --
 
 def generate_initial_draft(prompt, min_len=700, max_tries=3):
     return generate_iterative_seo_text(prompt, min_len, max_tries)
@@ -226,20 +226,20 @@ def humanize_text(text):
     response = openai.ChatCompletion.create(
         model="gpt-4-turbo",
         messages=[{"role": "user", "content": humanize_prompt}],
-        max_tokens=len(text.split()) * 2
+        max_tokens=max(300, len(text.split()) * 4)  # Øget fra *3 til *4
     )
     return response.choices[0].message.content.strip()
 
-def enhance_seo_text(text, rel_soegeord):
+def enhance_seo_text(text, rel_soegeord, extra_instructions):
     seo_prompt = (
-        "Forbedr SEO-optimeringen af følgende tekst ved at integrere følgende "
-        "relaterede søgeord: " + rel_soegeord + ". Tilføj meta-titel, meta-beskrivelse, "
-        "FAQ og interne links, hvor det giver mening. Her er teksten:\n\n" + text
+        "Forbedr SEO-optimeringen af følgende tekst ved at integrere de relaterede søgeord: " + rel_soegeord + ". " +
+        extra_instructions +
+        "Her er teksten:\n\n" + text
     )
     response = openai.ChatCompletion.create(
         model="gpt-4-turbo",
         messages=[{"role": "user", "content": seo_prompt}],
-        max_tokens=len(text.split()) * 2
+        max_tokens=max(300, len(text.split()) * 4)  # Øget fra *3 til *4
     )
     return response.choices[0].message.content.strip()
 
@@ -469,7 +469,7 @@ elif st.session_state["page"] == "seo":
         if st.button("Generér SEO-tekst"):
             with st.spinner("Genererer SEO-tekst..."):
                 for i in range(antal):
-                    # Byg basisprompt
+                    # Byg basisprompt ud fra de valgte indstillinger
                     base_prompt = (
                         f"Skriv en SEO-optimeret tekst på dansk om '{seo_key}'.\n"
                         f"Formål: {formaal}, Målgruppe: {malgruppe}, Tone-of-voice: {tone}.\n"
@@ -492,8 +492,20 @@ elif st.session_state["page"] == "seo":
                     initial_draft = generate_initial_draft(base_prompt, min_len=min_len)
                     # 2) Humaniser teksten
                     humanized = humanize_text(initial_draft)
-                    # 3) Forfin SEO-elementer
-                    enhanced_seo = enhance_seo_text(humanized, rel_soegeord)
+                    
+                    # Saml ekstra instruktioner ud fra de markerede indstillinger
+                    extra_instructions = ""
+                    if inc_faq:
+                        extra_instructions += "Tilføj en FAQ-sektion med mindst 3 spørgsmål. "
+                    if inc_meta:
+                        extra_instructions += "Tilføj meta-titel (60 tegn) og meta-beskrivelse (160 tegn). "
+                    if inc_links:
+                        extra_instructions += "Tilføj mindst 2 interne links. "
+                    if inc_cta:
+                        extra_instructions += "Afslut med en tydelig CTA. "
+                    
+                    # 3) Forfin SEO-elementer med de ekstra instruktioner
+                    enhanced_seo = enhance_seo_text(humanized, rel_soegeord, extra_instructions)
                     # 4) Kør blacklist-check
                     final_txt = check_blacklist_and_rewrite(enhanced_seo, data.get("blacklist", ""), max_tries=2)
                     
