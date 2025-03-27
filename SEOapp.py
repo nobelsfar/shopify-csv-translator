@@ -71,7 +71,6 @@ if not st.session_state.get("api_key"):
     else:
         st.stop()
 
-import openai
 openai.api_key = st.session_state["api_key"]
 
 def fetch_website_content(url):
@@ -213,6 +212,36 @@ def check_blacklist_and_rewrite(text, blacklist_words, max_tries=2):
         )
         final_text = r3.choices[0].message.content.strip()
     return final_text
+
+# --- NYE FUNKTIONER TIL MULTI-AGENT PROCESSEN ---
+
+def generate_initial_draft(prompt, min_len=700, max_tries=3):
+    return generate_iterative_seo_text(prompt, min_len, max_tries)
+
+def humanize_text(text):
+    humanize_prompt = (
+        "Forbedr følgende tekst, så den lyder mere naturlig og menneskelig, "
+        "og juster tone og flow uden at ændre på det centrale indhold:\n\n" + text
+    )
+    response = openai.ChatCompletion.create(
+        model="gpt-4-turbo",
+        messages=[{"role": "user", "content": humanize_prompt}],
+        max_tokens=len(text.split()) * 2
+    )
+    return response.choices[0].message.content.strip()
+
+def enhance_seo_text(text, rel_soegeord):
+    seo_prompt = (
+        "Forbedr SEO-optimeringen af følgende tekst ved at integrere følgende "
+        "relaterede søgeord: " + rel_soegeord + ". Tilføj meta-titel, meta-beskrivelse, "
+        "FAQ og interne links, hvor det giver mening. Her er teksten:\n\n" + text
+    )
+    response = openai.ChatCompletion.create(
+        model="gpt-4-turbo",
+        messages=[{"role": "user", "content": seo_prompt}],
+        max_tokens=len(text.split()) * 2
+    )
+    return response.choices[0].message.content.strip()
 
 # -- SIDEBAR
 st.sidebar.header("Navigation")
@@ -367,7 +396,7 @@ if st.session_state["page"] == "profil":
     blacklist_text = st.text_area(
         "Indtast kommaseparerede ord, der ikke må indgå i SEO-teksten.",
         value=default_blacklist,
-        height=68  # Minimum 68 pixels
+        height=68
     )
     if st.button("Gem blacklist"):
         st.session_state["profiles"][st.session_state["current_profile"]]["blacklist"] = blacklist_text
@@ -440,7 +469,7 @@ elif st.session_state["page"] == "seo":
         if st.button("Generér SEO-tekst"):
             with st.spinner("Genererer SEO-tekst..."):
                 for i in range(antal):
-                    # Hardkod prompt til at returnere HTML
+                    # Byg basisprompt
                     base_prompt = (
                         f"Skriv en SEO-optimeret tekst på dansk om '{seo_key}'.\n"
                         f"Formål: {formaal}, Målgruppe: {malgruppe}, Tone-of-voice: {tone}.\n"
@@ -459,17 +488,15 @@ elif st.session_state["page"] == "seo":
                     if inc_cta:
                         base_prompt += "Afslut med en tydelig CTA.\n"
 
-                    blacklist_words = data.get("blacklist", "")
-
-                    # 1) generér iterativ => min. ord
-                    draft = generate_iterative_seo_text(base_prompt, min_len=min_len, max_tries=3)
+                    # 1) Generer første udkast
+                    initial_draft = generate_initial_draft(base_prompt, min_len=min_len)
+                    # 2) Humaniser teksten
+                    humanized = humanize_text(initial_draft)
+                    # 3) Forfin SEO-elementer
+                    enhanced_seo = enhance_seo_text(humanized, rel_soegeord)
+                    # 4) Kør blacklist-check
+                    final_txt = check_blacklist_and_rewrite(enhanced_seo, data.get("blacklist", ""), max_tries=2)
                     
-                    # 2) Vi fjerner ikke "### " - behold strukturen som den er
-                    # draft = draft.replace("### ", "")
-                    
-                    # 3) check blacklist => rewrite
-                    final_txt = check_blacklist_and_rewrite(draft, blacklist_words, max_tries=2)
-
                     st.session_state["generated_texts"].append(final_txt)
             save_state()
 
