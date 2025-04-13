@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import pandas as pd
 import openai
 import time
@@ -23,7 +23,6 @@ def check_password():
             else:
                 st.error("Forkert adgangskode")
                 st.stop()
-
         else:
             st.stop()
 
@@ -42,6 +41,8 @@ uploaded_file = st.file_uploader("Upload din Shopify CSV-fil", type=["csv"])
 api_key = st.text_input("Indsæt din OpenAI API-nøgle", type="password")
 
 if uploaded_file and api_key:
+    openai.api_key = api_key
+
     df = pd.read_csv(uploaded_file)
     df.columns = df.columns.str.strip()
     st.success("CSV-fil indlæst!")
@@ -50,7 +51,6 @@ if uploaded_file and api_key:
     selected_locales = st.multiselect("Vælg hvilke Locale-sprog du vil oversætte", options=available_locales, default=available_locales)
 
     if st.button("✉️ Start oversættelse"):
-        client = openai.OpenAI(api_key=api_key)
         progress = st.progress(0)
         total = len(df)
         count = 0
@@ -60,7 +60,7 @@ if uploaded_file and api_key:
             if locale in supported_languages and locale in selected_locales:
                 if pd.isna(row["Translated content"]) or row["Translated content"].strip() == "":
                     try:
-                        response = client.chat.completions.create(
+                        response = openai.ChatCompletion.create(
                             model="gpt-4-turbo",
                             messages=[
                                 {"role": "system", "content": f"Du er en professionel oversætter. Oversæt nøjagtigt og ordret fra dansk til {supported_languages[locale]}. Bevar alle HTML-tags og strukturen præcis som den er. Du må ikke forklare noget. Returnér KUN den oversatte tekst."},
@@ -116,10 +116,6 @@ if uploaded_file and api_key:
             st.session_state[backup_key] = translated_content
 
         st.markdown(f"<div style='border:1px solid #ccc; padding:1em; border-radius:10px;'>{translated_content}</div>", unsafe_allow_html=True)
-    
-    #edited_text feltet er fjernet da redigering nu sker direkte i preview-feltet
-
-    #"Ret oversættelsen her:", height=300, key=edit_key)
 
     if st.button("💾 Gem ændringer"):
         if translated_editor_active:
@@ -135,7 +131,6 @@ if uploaded_file and api_key:
         else:
             st.info("Ingen ændringer at gemme.")
 
-    # Opdater DataFrame med oversættelser fra session_state før download
     for idx in df.index:
         backup_key = f"backup_translated_{idx}"
         if backup_key in st.session_state:
